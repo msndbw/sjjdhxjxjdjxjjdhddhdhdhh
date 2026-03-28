@@ -198,9 +198,9 @@ input[type="number"].ctrl::-webkit-outer-spin-button { opacity: .5; }
 /* ── DATE BLOCK ── */
 .date-slots { display: flex; gap: 8px; align-items: flex-start; }
 .date-slot  { display: flex; flex-direction: column; gap: 3px; }
-.date-slot.slot-day   { width: 76px; flex-shrink: 0; }
-.date-slot.slot-month { flex: 1; }
-.date-slot.slot-year  { width: 90px; flex-shrink: 0; }
+.date-slot.slot-day   { width: 72px; flex-shrink: 0; }
+.date-slot.slot-month { width: 72px; flex-shrink: 0; }
+.date-slot.slot-year  { flex: 1; }
 
 .slot-pill {
   font-size: .63rem; font-weight: 800;
@@ -218,12 +218,25 @@ input[type="number"].ctrl::-webkit-outer-spin-button { opacity: .5; }
 .slot-month .ctrl:focus { border-color: #d97706;           box-shadow: 0 0 0 3px rgba(217,119,6,.12); }
 .slot-year  .ctrl:focus { border-color: #16a34a;           box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
 
-/* day number input */
-select#birthDay, select#joinDay {
+/* disabled state */
+.ctrl:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: var(--cream-dk);
+}
+
+/* day/month selects centered */
+select#birthDay, select#joinDay,
+select#birthMonth, select#joinMonth {
   text-align: center;
-  font-size: 1.05rem;
+  font-size: .93rem;
   font-weight: 700;
   letter-spacing: .02em;
+}
+
+@media (max-width: 400px) {
+  .date-slot.slot-day   { width: 60px; }
+  .date-slot.slot-month { width: 60px; }
 }
 
 /* ── SUB GROUP ── */
@@ -685,6 +698,13 @@ body.has-nav main { padding-bottom: 90px; }
 }
 .share-copy-btn:hover { opacity: .88; transform: translateY(-1px); }
 .share-copy-btn.copied { background: var(--navy-md); }
+.share-wa-btn {
+  background: #25D366; color: #fff; border: none;
+  border-radius: 7px; padding: 11px 14px; cursor: pointer;
+  transition: all .15s; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.share-wa-btn:hover { background: #1ebe5d; transform: translateY(-1px); }
 
 /* modal متجاوب للهاتف */
 @media (max-width: 480px) {
@@ -745,6 +765,7 @@ body.has-nav main { padding-bottom: 90px; }
       <div class="field">
         <div class="field-lbl">⚥ الجنس <span class="req">*</span></div>
         <select class="ctrl" id="genderSelect">
+          <option value="">— اختر الجنس —</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
@@ -754,17 +775,17 @@ body.has-nav main { padding-bottom: 90px; }
       <div class="field">
         <div class="field-lbl">🎂 تاريخ الميلاد <span class="req">*</span></div>
         <div class="date-slots">
-          <div class="date-slot slot-day">
-            <div class="slot-pill">اليوم</div>
-            <select class="ctrl" id="birthDay"></select>
+          <div class="date-slot slot-year">
+            <div class="slot-pill">السنة</div>
+            <select class="ctrl" id="birthYear" onchange="onYearChange('birth')"></select>
           </div>
           <div class="date-slot slot-month">
             <div class="slot-pill">الشهر</div>
-            <select class="ctrl" id="birthMonth"></select>
+            <select class="ctrl" id="birthMonth" disabled onchange="onMonthChange('birth')"></select>
           </div>
-          <div class="date-slot slot-year">
-            <div class="slot-pill">السنة</div>
-            <select class="ctrl" id="birthYear"></select>
+          <div class="date-slot slot-day">
+            <div class="slot-pill">اليوم</div>
+            <select class="ctrl" id="birthDay" disabled></select>
           </div>
         </div>
       </div>
@@ -784,17 +805,17 @@ body.has-nav main { padding-bottom: 90px; }
         </div>
         <div class="field" style="grid-column:1/-1">
           <div class="date-slots">
-            <div class="date-slot slot-day">
-              <div class="slot-pill">اليوم</div>
-              <select class="ctrl" id="joinDay"></select>
+            <div class="date-slot slot-year">
+              <div class="slot-pill">السنة</div>
+              <select class="ctrl" id="joinYear" onchange="onYearChange('join')"></select>
             </div>
             <div class="date-slot slot-month">
               <div class="slot-pill">الشهر</div>
-              <select class="ctrl" id="joinMonth"></select>
+              <select class="ctrl" id="joinMonth" disabled onchange="onMonthChange('join')"></select>
             </div>
-            <div class="date-slot slot-year">
-              <div class="slot-pill">السنة</div>
-              <select class="ctrl" id="joinYear"></select>
+            <div class="date-slot slot-day">
+              <div class="slot-pill">اليوم</div>
+              <select class="ctrl" id="joinDay" disabled></select>
             </div>
           </div>
         </div>
@@ -857,8 +878,16 @@ body.has-nav main { padding-bottom: 90px; }
       <div class="modal-subtitle" id="modalSubtitle">اختر الخطط التي تريد تضمينها في ملف PDF</div>
       <div class="modal-plans" id="modalPlansList"></div>
       <div id="shareLinkContainer" style="display:none">
-        <button class="share-copy-btn" id="shareLinkCopyBtn">📋 نسخ الرابط</button>
+        <div style="display:flex;gap:8px;margin-bottom:9px;">
+          <button class="share-copy-btn" id="shareLinkCopyBtn" style="flex:1;margin-bottom:0;">📋 نسخ الرابط</button>
+          <button class="share-wa-btn" id="shareWABtn" title="مشاركة عبر واتساب">
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-..74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/></svg>
+          </button>
+        </div>
         <div class="share-link-box" id="shareLinkBox"></div>
+        <div style="font-size:.69rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5;">
+          🔒 الرابط يفتح صفحة العرض فقط — لا يمكن الوصول للحاسبة
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -1312,14 +1341,34 @@ function exportPDFPlans(chosenPlans) {
     .rret td{background:#e8f5ee!important;color:#2d6a4f;font-weight:800}
     /* page footer */
     .page-footer{
-      margin-top:12px;padding-top:7px;
+      margin-top:10px;padding-top:6px;
       border-top:1px solid rgba(184,148,63,.3);
-      font-size:9px;color:#7a6e5f;text-align:center;
+      font-size:8.5px;color:#7a6e5f;text-align:center;
     }
+    /* ── تحسين عام للـ PDF ── */
+    .plan-page { padding:14px 18px 10px; max-width:780px; margin:0 auto; }
+    .plan-hdr-bar { padding:9px 14px; margin-bottom:10px; }
+    .plan-hdr-bar h2 { font-size:15px; }
+    .emp-bar { margin-bottom:8px; }
+    .emp-cell { padding:6px 9px; }
+    .emp-lbl { font-size:8.5px; }
+    .emp-val { font-size:10.5px; }
+    .stats-row { gap:4px; margin-bottom:8px; }
+    .stat-box { padding:6px 7px; min-width:70px; }
+    .stat-box .sl { font-size:7.5px; }
+    .stat-box .sv { font-size:11px; }
+    .details-grid { padding:7px 11px; margin-bottom:8px; }
+    .detail-row { padding:3.5px 0; font-size:10px; }
+    .rpill { padding:5px 10px; font-size:10px; margin-bottom:8px; }
+    .tbl-title { font-size:9.5px; margin-bottom:4px; }
+    table { font-size:9.5px; }
+    th { padding:5px 8px; font-size:9px; }
+    td { padding:4px 8px; }
     @media print {
       body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .cover{min-height:initial; page-break-after:always;}
       .plan-page{page-break-inside:avoid}
+      @page { margin: 12mm 10mm; }
     }
   `;
 
@@ -1331,7 +1380,7 @@ function exportPDFPlans(chosenPlans) {
   <div class="cover">
     <div class="cover-logo">🏛️</div>
     <h1>جداول التقاعد الاختياري</h1>
-    <p>النظام الرسمي للتقاعد الاختياري</p>
+    <p>جداول التقاعد الاختياري</p>
     <div class="cover-divider"></div>
     <div class="cover-card">
       <div class="cover-row"><span class="lbl">الاسم</span><span class="val">${nm}</span></div>
@@ -1640,6 +1689,10 @@ function buildCard(plan, ci, nm, g, age, prevMo) {
 ───────────────────────────────────── */
 function generate() {
   try {
+    // التحقق من الجنس أولاً
+    const g = document.getElementById('genderSelect').value;
+    if (!g) { showAlert('❌ يرجى اختيار الجنس أولاً', 'e'); return; }
+
     // Read birth date
     const bD = +document.getElementById('birthDay').value;
     const bM = document.getElementById('birthMonth').value;
@@ -1653,7 +1706,6 @@ function generate() {
     }
 
     const nm  = document.getElementById('nameInput').value.trim() || 'مشترك';
-    const g   = document.getElementById('genderSelect').value;
     const cv  = document.getElementById('currentCategory').value;
     const useUC = cv !== '';
     const uc  = useUC ? +cv : 1;
@@ -1854,21 +1906,25 @@ function showToast(msg) {
 ───────────────────────────────────── */
 function populate() {
   const cy = new Date().getFullYear();
-  const monthOpts = '<option value="">الشهر</option>' +
-    [1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}">${m}</option>`).join('');
+
+  // السنوات
   let yearBirth = '<option value="">السنة</option>';
   for (let y = cy; y >= 1950; y--) yearBirth += `<option value="${y}">${y}</option>`;
   let yearJoin  = '<option value="">السنة</option>';
   for (let y = cy; y >= 1970; y--) yearJoin  += `<option value="${y}">${y}</option>`;
 
-  const dayOpts = '<option value="">اليوم</option>' +
-    Array.from({length:31},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
-  document.getElementById('birthDay').innerHTML  = dayOpts;
-  document.getElementById('joinDay').innerHTML   = dayOpts;
-  document.getElementById('birthMonth').innerHTML = monthOpts;
-  document.getElementById('birthYear').innerHTML  = yearBirth;
-  document.getElementById('joinMonth').innerHTML  = monthOpts;
-  document.getElementById('joinYear').innerHTML   = yearJoin;
+  document.getElementById('birthYear').innerHTML = yearBirth;
+  document.getElementById('joinYear').innerHTML  = yearJoin;
+
+  // الشهور — معطّلة مبدئياً
+  const monthBase = '<option value="">الشهر</option>' +
+    [1,2,3,4,5,6,7,8,9,10,11,12].map(m => `<option value="${m}">${m}</option>`).join('');
+  document.getElementById('birthMonth').innerHTML = monthBase;
+  document.getElementById('joinMonth').innerHTML  = monthBase;
+
+  // الأيام — معطّلة مبدئياً
+  document.getElementById('birthDay').innerHTML = '<option value="">اليوم</option>';
+  document.getElementById('joinDay').innerHTML  = '<option value="">اليوم</option>';
 
   let catHTML = '<option value="">— تلقائي —</option>';
   for (let i = 1; i <= 15; i++)
@@ -1876,17 +1932,72 @@ function populate() {
   document.getElementById('currentCategory').innerHTML = catHTML;
 }
 
+// عدد أيام الشهر بحسب النظام العالمي
+function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate(); // month هنا 1-12
+}
+
+// عند اختيار السنة — تفعيل الشهر
+function onYearChange(prefix) {
+  const yearEl  = document.getElementById(prefix + 'Year');
+  const monthEl = document.getElementById(prefix + 'Month');
+  const dayEl   = document.getElementById(prefix + 'Day');
+  const y = +yearEl.value;
+
+  if (!y) {
+    monthEl.disabled = true; monthEl.value = '';
+    dayEl.disabled   = true; dayEl.value   = '';
+    return;
+  }
+  monthEl.disabled = false;
+  // أعد ضبط اليوم إذا تغيّرت السنة
+  dayEl.disabled = true; dayEl.value = '';
+  dayEl.innerHTML = '<option value="">اليوم</option>';
+}
+window.onYearChange = onYearChange;
+
+// عند اختيار الشهر — تفعيل اليوم وتحديث عدد أيامه
+function onMonthChange(prefix) {
+  const yearEl  = document.getElementById(prefix + 'Year');
+  const monthEl = document.getElementById(prefix + 'Month');
+  const dayEl   = document.getElementById(prefix + 'Day');
+  const y = +yearEl.value;
+  const m = +monthEl.value;
+
+  if (!m) {
+    dayEl.disabled = true; dayEl.value = '';
+    dayEl.innerHTML = '<option value="">اليوم</option>';
+    return;
+  }
+  const maxDay = daysInMonth(y || 2000, m);
+  let html = '<option value="">اليوم</option>';
+  for (let d = 1; d <= maxDay; d++) html += `<option value="${d}">${d}</option>`;
+  dayEl.innerHTML  = html;
+  dayEl.disabled   = false;
+  // إذا كان اليوم المختار أكبر من عدد أيام الشهر الجديد — أعده
+  if (+dayEl.value > maxDay) dayEl.value = '';
+}
+window.onMonthChange = onMonthChange;
+
 function reset() {
-  document.getElementById('nameInput').value  = '';
-  document.getElementById('genderSelect').value = 'male';
-  document.getElementById('birthDay').value   = '';
-  document.getElementById('joinDay').value    = '';
-  document.getElementById('priorYears').value = '';
+  document.getElementById('nameInput').value   = '';
+  document.getElementById('genderSelect').value= '';
+  // إعادة تهيئة تواريخ الميلاد
+  document.getElementById('birthYear').value   = '';
+  document.getElementById('birthMonth').value  = ''; document.getElementById('birthMonth').disabled = true;
+  document.getElementById('birthDay').value    = ''; document.getElementById('birthDay').disabled   = true;
+  document.getElementById('birthDay').innerHTML= '<option value="">اليوم</option>';
+  // إعادة تهيئة تاريخ الانتساب
+  document.getElementById('joinYear').value    = '';
+  document.getElementById('joinMonth').value   = ''; document.getElementById('joinMonth').disabled  = true;
+  document.getElementById('joinDay').value     = ''; document.getElementById('joinDay').disabled    = true;
+  document.getElementById('joinDay').innerHTML = '<option value="">اليوم</option>';
+  document.getElementById('priorYears').value  = '';
   document.getElementById('priorMonths').value = '';
   document.getElementById('results').innerHTML = '';
-  document.getElementById('pdfBtn').style.display = 'none';
-  document.getElementById('shareBtn').style.display = 'none';
-  document.getElementById('copyAllBtn').style.display = 'none';
+  document.getElementById('pdfBtn').style.display      = 'none';
+  document.getElementById('shareBtn').style.display    = 'none';
+  document.getElementById('copyAllBtn').style.display  = 'none';
   const nav = document.getElementById('planNav');
   if (nav) { nav.style.display = 'none'; }
   document.body.classList.remove('has-nav');
@@ -2101,6 +2212,15 @@ function buildShareLink(chosenPlans) {
     }, 2500);
     showToast('✅ تم نسخ الرابط');
   };
+
+  // زر مشاركة واتساب
+  const waBtn = document.getElementById('shareWABtn');
+  if (waBtn) {
+    waBtn.onclick = function() {
+      const msg = `📋 جداول التقاعد الاختياري - ${USER.nm || 'مشترك'}\n\nافتح الرابط لعرض أو تحميل الجداول:\n${url}`;
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    };
+  }
 }
 
 /* ─────────────────────────────────────
