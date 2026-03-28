@@ -198,9 +198,9 @@ input[type="number"].ctrl::-webkit-outer-spin-button { opacity: .5; }
 /* ── DATE BLOCK ── */
 .date-slots { display: flex; gap: 8px; align-items: flex-start; }
 .date-slot  { display: flex; flex-direction: column; gap: 3px; }
-.date-slot.slot-day   { width: 72px; flex-shrink: 0; }
-.date-slot.slot-month { width: 72px; flex-shrink: 0; }
-.date-slot.slot-year  { flex: 1; }
+.date-slot.slot-day   { flex: 1; min-width: 0; }
+.date-slot.slot-month { flex: 1; min-width: 0; }
+.date-slot.slot-year  { flex: 1; min-width: 0; }
 
 .slot-pill {
   font-size: .63rem; font-weight: 800;
@@ -235,8 +235,8 @@ select#birthMonth, select#joinMonth {
 }
 
 @media (max-width: 400px) {
-  .date-slot.slot-day   { width: 60px; }
-  .date-slot.slot-month { width: 60px; }
+  .date-slot.slot-day   { flex: 1; min-width: 0; }
+  .date-slot.slot-month { flex: 1; min-width: 0; }
 }
 
 /* ── SUB GROUP ── */
@@ -488,6 +488,19 @@ select#birthMonth, select#joinMonth {
 }
 .copy-btn:hover { background: var(--gold); color: var(--white); border-color: var(--gold); }
 .copy-btn.done { background: var(--green); color: var(--white); border-color: var(--green); }
+
+/* validation error border */
+.ctrl.field-error {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 3px rgba(192,57,43,.18) !important;
+  background: #fff5f5 !important;
+  animation: shake .35s ease;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-5px)}
+  60%{transform:translateX(5px)}
+}
 
 /* alert */
 .alert {
@@ -886,7 +899,7 @@ body.has-nav main { padding-bottom: 90px; }
         </div>
         <div class="share-link-box" id="shareLinkBox"></div>
         <div style="font-size:.69rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5;">
-          🔒 الرابط يفتح صفحة العرض فقط — لا يمكن الوصول للحاسبة
+          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" style="color:var(--gold);font-weight:700;">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
         </div>
       </div>
     </div>
@@ -1687,21 +1700,43 @@ function buildCard(plan, ci, nm, g, age, prevMo) {
 /* ─────────────────────────────────────
    GENERATE
 ───────────────────────────────────── */
+function clearFieldErrors() {
+  document.querySelectorAll('.ctrl.field-error').forEach(el => el.classList.remove('field-error'));
+}
+
+function markError(el) {
+  el.classList.add('field-error');
+  el.addEventListener('change', () => el.classList.remove('field-error'), { once: true });
+}
+
 function generate() {
   try {
+    clearFieldErrors();
+    let hasError = false;
+
     // التحقق من الجنس أولاً
-    const g = document.getElementById('genderSelect').value;
-    if (!g) { showAlert('❌ يرجى اختيار الجنس أولاً', 'e'); return; }
+    const gEl = document.getElementById('genderSelect');
+    const g = gEl.value;
+    if (!g) { markError(gEl); hasError = true; }
 
     // Read birth date
-    const bD = +document.getElementById('birthDay').value;
-    const bM = document.getElementById('birthMonth').value;
-    const bY = document.getElementById('birthYear').value;
+    const bDEl = document.getElementById('birthDay');
+    const bMEl = document.getElementById('birthMonth');
+    const bYEl = document.getElementById('birthYear');
+    const bD = +bDEl.value, bM = bMEl.value, bY = bYEl.value;
 
-    if (!bD || !bM || !bY) { showAlert('❌ يرجى إدخال تاريخ الميلاد كاملاً', 'e'); return; }
+    if (!bD || !bM || !bY) {
+      if (!bY) markError(bYEl);
+      if (!bM) markError(bMEl);
+      if (!bD) markError(bDEl);
+      hasError = true;
+    }
+
+    if (hasError) { showAlert('❌ يرجى إدخال تاريخ الميلاد والجنس', 'e'); return; }
 
     const birth = new Date(+bY, +bM - 1, bD);
     if (isNaN(birth.getTime()) || birth > new Date()) {
+      markError(bDEl); markError(bMEl); markError(bYEl);
       showAlert('❌ تاريخ الميلاد غير صحيح', 'e'); return;
     }
 
@@ -2176,14 +2211,15 @@ function buildShareLink(chosenPlans) {
     ],
     p: chosenPlans.map(p => [
       p.targetAge, p.totalServiceMonths, p.purchaseMonths,
-      Math.round(p.pension), Math.round(p.avg), Math.round(p.purchaseCost),
+      Math.round(p.pension/1000), Math.round(p.avg/1000), Math.round(p.purchaseCost/1000),
       p.retireDate.getFullYear(),
       p.yearsPlan.length > 0 ? p.yearsPlan[0].cat : 1
     ])
   };
 
   const json    = JSON.stringify(payload);
-  const encoded = btoa(unescape(encodeURIComponent(json)));
+  const encoded = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   
   // بناء رابط viewer.html منفصل — لا علاقة له بالحاسبة
   const baseUrl = window.location.href.split('/').slice(0,-1).join('/') + '/viewer.html';
@@ -2234,7 +2270,8 @@ function loadSharedView() {
   const isOld = hash.startsWith('#share=');
   if (!isV3 && !isOld) return false;
   try {
-    const encoded = isV3 ? hash.slice(3) : hash.slice(7);
+    const rawEnc  = isV3 ? hash.slice(3) : hash.slice(7);
+    const encoded = rawEnc.replace(/-/g,'+').replace(/_/g,'/') + '=='.slice(0,(4-rawEnc.length%4)%4);
     const payload = JSON.parse(decodeURIComponent(escape(atob(encoded))));
     if (!payload) return false;
 
@@ -2250,7 +2287,7 @@ function loadSharedView() {
       plans=payload.p.map((p,i)=>({
         title:`الخطة ${i+1}`, desc:descs[i]||'خطة '+(i+1),
         targetAge:p[0], totalServiceMonths:p[1], purchaseMonths:p[2],
-        pension:p[3], avg:p[4], purchaseCost:p[5],
+        pension:p[3]*1000, avg:p[4]*1000, purchaseCost:p[5]*1000,
         retireDate:new Date(p[6],0,1),
         yearsPlan:buildCatPlan(u_sa,p[0],p[7])
       }));
@@ -2345,6 +2382,26 @@ window.onload = function () {
   document.getElementById('copyAllBtn').onclick = openCopyAllModal;
   document.getElementById('printBtn').onclick  = () => window.print();
   document.getElementById('resetBtn').onclick  = reset;
+
+  // ── حساب لحظي عند تغيير البيانات ──
+  const liveFields = ['genderSelect','birthYear','birthMonth','birthDay',
+                      'joinYear','joinMonth','joinDay',
+                      'priorYears','priorMonths','currentCategory','nameInput'];
+  let liveTimer = null;
+  liveFields.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(() => {
+        const g  = document.getElementById('genderSelect').value;
+        const bY = document.getElementById('birthYear').value;
+        const bM = document.getElementById('birthMonth').value;
+        const bD = document.getElementById('birthDay').value;
+        if (g && bY && bM && bD) { generate(); }
+      }, 400);
+    });
+  });
 
   // Modal events
   document.getElementById('modalCloseBtn').onclick  = closeModal;

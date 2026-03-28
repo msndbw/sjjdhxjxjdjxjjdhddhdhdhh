@@ -176,7 +176,8 @@ function loadData(){
   const isOld=hash.startsWith('#share=');
   if(!isV3&&!isOld)return null;
   try{
-    const encoded=isV3?hash.slice(3):hash.slice(7);
+    const rawEnc=isV3?hash.slice(3):hash.slice(7);
+    const encoded=rawEnc.replace(/-/g,'+').replace(/_/g,'/')+'=='.slice(0,(4-rawEnc.length%4)%4);
     const payload=JSON.parse(decodeURIComponent(escape(atob(encoded))));
     if(!payload)return null;
     let u_nm,u_g,u_ay,u_am,u_ts,u_py,u_pm,u_sa,plans;
@@ -190,7 +191,7 @@ function loadData(){
       plans=payload.p.map((p,i)=>({
         title:`الخطة ${i+1}`,desc:descs[i]||'خطة '+(i+1),
         targetAge:p[0],totalServiceMonths:p[1],purchaseMonths:p[2],
-        pension:p[3],avg:p[4],purchaseCost:p[5],
+        pension:p[3]*1000,avg:p[4]*1000,purchaseCost:p[5]*1000,
         retireDate:new Date(p[6],0,1),
         yearsPlan:buildCatPlan(u_sa,p[0],p[7])
       }));
@@ -425,8 +426,7 @@ window.onload=function(){
       </button>
     </div>
     <div class="footer-note">
-      هذا الرابط للعرض فقط ولا يتيح الوصول إلى الحاسبة<br>
-      <a href="${QR_LINK}" style="color:#b8943f;font-weight:700;">linktr.ee/Daman2026</a>
+      <a href="https://linktr.ee/Daman2026" target="_blank" style="color:#b8943f;font-weight:700;text-decoration:none;">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
     </div>`;
   
   document.getElementById('dlBtn').onclick=()=>downloadPDF(data);
