@@ -2383,26 +2383,6 @@ window.onload = function () {
   document.getElementById('printBtn').onclick  = () => window.print();
   document.getElementById('resetBtn').onclick  = reset;
 
-  // ── حساب لحظي عند تغيير البيانات ──
-  const liveFields = ['genderSelect','birthYear','birthMonth','birthDay',
-                      'joinYear','joinMonth','joinDay',
-                      'priorYears','priorMonths','currentCategory','nameInput'];
-  let liveTimer = null;
-  liveFields.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('change', () => {
-      clearTimeout(liveTimer);
-      liveTimer = setTimeout(() => {
-        const g  = document.getElementById('genderSelect').value;
-        const bY = document.getElementById('birthYear').value;
-        const bM = document.getElementById('birthMonth').value;
-        const bD = document.getElementById('birthDay').value;
-        if (g && bY && bM && bD) { generate(); }
-      }, 400);
-    });
-  });
-
   // Modal events
   document.getElementById('modalCloseBtn').onclick  = closeModal;
   document.getElementById('modalCancelBtn').onclick = closeModal;
