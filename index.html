@@ -2,7 +2,10 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a1628">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>جداول التقاعد الاختياري</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -15,6 +18,7 @@
     <div class="hdr-logo">🏛️</div>
     <div class="hdr-text">
       <h1>إنشاء جداول التقاعد الاختياري</h1>
+      <p>نظام احتساب الراتب التقاعدي وفق القانون</p>
     </div>
     <div class="hdr-badge no-print">النظام الرسمي</div>
   </div>
@@ -33,12 +37,12 @@
 
       <!-- الاسم -->
       <div class="field">
-        <div class="field-lbl">👤 الاسم الكامل</div>
+        <div class="field-lbl">👤 الاسم الكامل <span class="opt">اختياري</span></div>
         <input class="ctrl" type="text" id="nameInput" placeholder="مثال: أحمد محمد علي">
       </div>
 
       <!-- الجنس -->
-      <div class="field" id="field-gender">
+      <div class="field">
         <div class="field-lbl">⚥ الجنس <span class="req">*</span></div>
         <select class="ctrl" id="genderSelect">
           <option value="">— اختر الجنس —</option>
@@ -48,7 +52,7 @@
       </div>
 
       <!-- تاريخ الميلاد -->
-      <div class="field" id="field-birth">
+      <div class="field">
         <div class="field-lbl">🎂 تاريخ الميلاد <span class="req">*</span></div>
         <div class="date-slots">
           <div class="date-slot slot-year">
@@ -73,7 +77,7 @@
         <div class="field-hint">إذا تُرك فارغاً تُحسب الفئة تلقائياً</div>
       </div>
 
-      <!-- الاستقرار على فئة محددة قبل التقاعد -->
+      <!-- الاستقرار على فئة محددة -->
       <div class="field" style="grid-column:1/-1">
         <div class="field-lbl">🎯 الاستقرار على فئة محددة قبل التقاعد؟</div>
         <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;align-items:center">
@@ -170,7 +174,7 @@
 <div id="results"></div>
 </main>
 
-<div id="toast">✅ تم النسخ</div>
+<div id="toast"></div>
 
 <!-- ══════ PLAN NAVIGATION BAR ══════ -->
 <div id="planNav" class="plan-nav no-print" style="display:none">
@@ -192,26 +196,24 @@
       <div class="modal-subtitle" id="modalSubtitle">اختر الخطط التي تريد تضمينها في ملف PDF</div>
       <div class="modal-plans" id="modalPlansList"></div>
       <div id="shareLinkContainer" style="display:none">
-        <div style="display:flex;gap:8px;margin-bottom:9px;">
-          <button class="share-copy-btn" id="shareLinkCopyBtn" style="flex:1;margin-bottom:0;">📋 نسخ الرابط</button>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="share-copy-btn" id="shareLinkCopyBtn" style="flex:1;margin-bottom:0">📋 نسخ الرابط</button>
           <button class="share-wa-btn" id="shareWABtn" title="مشاركة عبر واتساب">
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-.74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor">
+              <path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-.74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/>
+            </svg>
           </button>
         </div>
         <div class="share-link-box" id="shareLinkBox"></div>
-        <!-- QR code للرابط المشارَك -->
-        <div class="share-qr-wrap" id="shareQrWrap" style="display:none">
-          <img id="shareQrImg" src="" alt="QR Code رابط المشاركة">
-          <span>امسح الكود لفتح الجدول مباشرة</span>
-        </div>
-        <div style="font-size:.69rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5;">
-          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" style="color:var(--gold);font-weight:700;">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5">
+          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer"
+               style="color:var(--gold);font-weight:700">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="modal-select-all" id="modalSelectAll">تحديد الكل</button>
-      <button class="btn-modal-cancel"  id="modalCancelBtn">إلغاء</button>
+      <button class="btn-modal-cancel" id="modalCancelBtn">إلغاء</button>
       <button class="btn-modal-confirm" id="modalConfirmBtn">📄 تصدير</button>
     </div>
   </div>

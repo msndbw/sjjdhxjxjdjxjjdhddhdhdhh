@@ -2,26 +2,28 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a1628">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>عرض جدول التقاعد</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- HEADER — معزول تماماً، لا يوجد رابط للحاسبة -->
+<!-- HEADER -->
 <header>
-  <div class="hdr" style="max-width:900px">
+  <div class="hdr">
     <div class="hdr-logo">🏛️</div>
     <div class="hdr-text">
-      <h1 style="font-size:1.2rem">جداول التقاعد الاختياري</h1>
+      <h1>جداول التقاعد الاختياري</h1>
       <p>عرض خطة تقاعدية مشارَكة</p>
     </div>
     <div class="hdr-badge">جدول مشارَك</div>
   </div>
 </header>
 
-<main style="max-width:900px">
+<main>
 
   <!-- حالة التحميل -->
   <div id="loadingState">
@@ -50,7 +52,7 @@
 
 <div id="toast"></div>
 
-<!-- FOOTER — لا يحتوي على رابط للحاسبة -->
+<!-- FOOTER -->
 <div class="viewer-footer">
   جداول التقاعد الاختياري — نظام رسمي لاحتساب الراتب التقاعدي
   <br>
