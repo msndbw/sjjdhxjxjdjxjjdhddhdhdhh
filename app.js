@@ -1,414 +1,176 @@
-/*!
- * جداول التقاعد الاختياري — app.js
- * النسخة 4.0 | إصلاحات وتحسينات شاملة
- */
-(function () {
-'use strict';
 
-/* ─────────────────────────────────────────────────────
-   CONSTANTS
-───────────────────────────────────────────────────── */
-const QR_LINK = 'https://linktr.ee/Daman2026';
-const QR_B64  = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAARCAIAAgADASIAAhEBAxEB/8QAGwABAQEBAQEBAQAAAAAAAAAAAAkIBwoGBQT/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/9k=';
+/* ═══════════════════════════════════════════════
+   SHARED LOGIC — used by both app.js & viewer.js
+═══════════════════════════════════════════════ */
+const SAL={1:350000,2:455000,3:560000,4:665000,5:770000,6:875000,7:980000,8:1085000,9:1190000,10:1295000,11:1400000,12:1505000,13:1610000,14:1715000,15:1750000};
+const PLAN_ACCENT=['ac1','ac2','ac3','ac4','ac5'];
+const PLAN_ICON_C=['ic1','ic2','ic3','ic4','ic5'];
+const PLAN_EMOJI=['🎯','📅','💰','⏰','👩‍💼'];
+const COLORS=['#2a5298','#1a5c38','#d4aa50','#8b2248','#4a2878'];
 
-const SAL = {
-  1:350000,  2:455000,  3:560000,  4:665000,  5:770000,
-  6:875000,  7:980000,  8:1085000, 9:1190000, 10:1295000,
-  11:1400000,12:1505000,13:1610000,14:1715000, 15:1750000
-};
-const PLAN_ACCENT  = ['ac1','ac2','ac3','ac4','ac5'];
-const PLAN_ICON_C  = ['ic1','ic2','ic3','ic4','ic5'];
-const PLAN_EMOJI   = ['🎯','📅','💰','⏰','👩‍💼'];
-const PLAN_COLOR_H = ['#2a5298','#1e5c3a','#c9993a','#8b2248','#50307a'];
-const COLORS       = PLAN_COLOR_H;
+function N(n){return Math.round(n).toLocaleString('ar-IQ')}
+function FM(m){const y=Math.floor(m/12),mo=m%12;if(!y)return`${mo} شهر`;if(!mo)return`${y} سنة`;return`${y} سنة و${mo} شهر`}
+function fmtDate(d){return d.toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric'})}
 
-/* ─────────────────────────────────────────────────────
-   STATE
-───────────────────────────────────────────────────── */
-let PLANS = [], USER = null;
-let FIXED_CAT_FOR_AVG = null;
-let TARGET_CAT_FOR_LAST5 = null;
-
-/* ─────────────────────────────────────────────────────
-   RETIREMENT RULES
-───────────────────────────────────────────────────── */
-function reqYears(g, a) {
-  if (g === 'male') {
-    if (a >= 50 && a <= 59) return 30;
-    if (a >= 60 && a <= 62) return 20;
-    if (a >= 63) return 15;
-  } else {
-    if (a >= 50 && a <= 54) return 25;
-    if (a >= 55 && a <= 57) return 20;
-    if (a >= 58) return 15;
-  }
-  return 15;
-}
-
-/* ─────────────────────────────────────────────────────
-   DATE UTILS
-───────────────────────────────────────────────────── */
-function ageDiff(birth, from) {
-  let y = from.getFullYear() - birth.getFullYear();
-  let m = from.getMonth() - birth.getMonth();
-  let d = from.getDate()  - birth.getDate();
-  if (d < 0) { m--; d += new Date(from.getFullYear(), from.getMonth(), 0).getDate(); }
-  if (m < 0) { y--; m += 12; }
-  return { years: y, months: m, days: d };
-}
-
-function monthsBetween(a, b) {
-  // المادة 35: كسر الشهر الأخير يُعدّ شهراً كاملاً
-  let t = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
-  if (b.getDate() < a.getDate()) t--;
-  else if (b.getDate() > a.getDate()) t++; // كسر شهر → يُكمَّل
-  return Math.max(0, t);
-}
-
-function dateAtAge(birth, age) {
-  let d = new Date(birth);
-  d.setFullYear(d.getFullYear() + age);
-  return d;
-}
-
-function fmtDate(d) {
-  return d.toLocaleDateString('ar-IQ', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-/* ─────────────────────────────────────────────────────
-   CATEGORY PLAN BUILDER
-───────────────────────────────────────────────────── */
-function idealStartCat(sa, ta) {
-  let g = (ta - sa) - 5;
-  if (g <= 0) return 1;
-  return Math.min(Math.max(15 - g, 1), 15);
-}
-
-function buildCatPlan(sa, ta, sc, targetCat) {
-  sa = Math.min(Math.max(sa, 0), 100);
-  ta = Math.min(Math.max(ta, sa), 100);
-  if (ta - sa > 60) ta = sa + 60;
-
-  const TC = (targetCat && targetCat >= 1 && targetCat <= 15)
-    ? Math.max(targetCat, sc) : 15;
-
-  let rows = [];
-  for (let a = sa; a <= ta; a++) rows.push({ age: a, cat: null });
-  const total      = rows.length;
-  const last5Start = Math.max(total - 5, 0);
-  const yearsB5    = last5Start;
-  const maxReach   = Math.min(TC, sc + yearsB5);
-
-  if (sc >= TC) {
-    rows.forEach(r => r.cat = TC);
-  } else if (yearsB5 === 0) {
-    let cat = sc;
-    for (let i = 0; i < total; i++) {
-      rows[i].cat = Math.min(TC, cat);
-      if (i < total - 1) cat = Math.min(TC, cat + 1);
-    }
-  } else if (yearsB5 >= (TC - sc)) {
-    let rem = yearsB5 - (TC - sc);
-    for (let i = 0; i < total; i++) {
-      if      (i < rem)         rows[i].cat = sc;
-      else if (i < last5Start)  rows[i].cat = Math.min(TC, sc + (i - rem));
-      else                      rows[i].cat = TC;
-    }
-  } else {
-    let cat = sc;
-    for (let i = 0; i < total; i++) {
-      if (i < last5Start) { rows[i].cat = Math.min(TC, cat); cat = Math.min(TC, cat + 1); }
-      else                  rows[i].cat = maxReach;
-    }
-  }
-
-  for (let i = 1; i < total; i++) {
-    if (rows[i].cat - rows[i-1].cat > 1) rows[i].cat = rows[i-1].cat + 1;
-    if (rows[i].cat > 15) rows[i].cat = 15;
-    if (rows[i].cat < 1)  rows[i].cat = 1;
-  }
+function buildCatPlan(sa,ta,sc,targetCat){
+  sa=Math.min(Math.max(sa,0),100);ta=Math.min(Math.max(ta,sa),100);
+  if(ta-sa>60)ta=sa+60;
+  const TC=(targetCat&&targetCat>=1&&targetCat<=15)?Math.max(targetCat,sc):15;
+  let rows=[];for(let a=sa;a<=ta;a++)rows.push({age:a,cat:null});
+  const total=rows.length,last5Start=Math.max(total-5,0),yearsB5=last5Start;
+  const maxReach=Math.min(TC,sc+yearsB5);
+  if(sc>=TC){rows.forEach(r=>r.cat=TC);}
+  else if(yearsB5===0){let cat=sc;for(let i=0;i<total;i++){rows[i].cat=Math.min(TC,cat);if(i<total-1)cat=Math.min(TC,cat+1);}}
+  else if(yearsB5>=(TC-sc)){let rem=yearsB5-(TC-sc);for(let i=0;i<total;i++){if(i<rem)rows[i].cat=sc;else if(i<last5Start)rows[i].cat=Math.min(TC,sc+(i-rem));else rows[i].cat=TC;}}
+  else{let cat=sc;for(let i=0;i<total;i++){if(i<last5Start){rows[i].cat=Math.min(TC,cat);cat=Math.min(TC,cat+1);}else rows[i].cat=maxReach;}}
+  for(let i=1;i<total;i++){if(rows[i].cat-rows[i-1].cat>1)rows[i].cat=rows[i-1].cat+1;if(rows[i].cat>15)rows[i].cat=15;if(rows[i].cat<1)rows[i].cat=1;}
   return rows;
 }
 
-/* ─────────────────────────────────────────────────────
-   PENSION
-───────────────────────────────────────────────────── */
-function avgLast5(plan) {
-  if (!plan.length) return 350000;
-  const last = plan.slice(-5);
-  return last.reduce((a, r) => a + SAL[r.cat], 0) / last.length;
+function avgLast5(plan){if(!plan.length)return 350000;const last=plan.slice(-5);return last.reduce((a,r)=>a+SAL[r.cat],0)/last.length;}
+function calcPension(avg,mo){let p=avg*0.025*mo/12;p=Math.min(p,avg*0.8);p=Math.max(p,350000);return p;}
+
+function showToast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
+
+function buildSummaryHTML(nm,g,age,ts,priorMo){
+  const items=[
+    {l:'الاسم',v:nm||'—'},
+    {l:'الجنس',v:g==='male'?'ذكر':'أنثى'},
+    {l:'العمر الحالي',v:`${age.years} سنة و${age.months} شهر`},
+    {l:'إجمالي الخدمة',v:FM(ts)},
+    {l:'الخدمة السابقة',v:priorMo>0?FM(priorMo):'لا يوجد'},
+  ];
+  return`<div class="sum-bar"><div class="sum-bar-title">📊 ملخص بيانات المشترك</div><div class="sum-items">${items.map(it=>`<div class="sum-item"><div class="si-l">${it.l}</div><div class="si-v">${it.v}</div></div>`).join('')}</div></div>`;
 }
 
-function calcPension(avg, mo) {
-  // المادة 35: متوسط الأجر × 2.5% × أشهر الخدمة ÷ 12
-  let p = avg * 0.025 * mo / 12;
-  p = Math.min(p, avg * 0.8);  // الحد الأقصى 80%
-  p = Math.max(p, 350000);      // الحد الأدنى 350,000
-  return p;
-}
-
-/* ─────────────────────────────────────────────────────
-   PLAN BUILDERS
-───────────────────────────────────────────────────── */
-function mkResult(svc, birth, sa, ta, buy, useUC, uc, joinDate) {
-  let fc   = useUC ? Math.min(Math.max(uc, 1), 15) : idealStartCat(sa, ta);
-  let plan = buildCatPlan(sa, ta, fc, TARGET_CAT_FOR_LAST5);
-  let retDate = dateAtAge(birth, ta);
-  let tot;
-  if (joinDate) {
-    tot = Math.max(0, monthsBetween(joinDate, retDate)) + svc;
-  } else {
-    tot = svc + Math.max(0, monthsBetween(new Date(), retDate));
-  }
-  tot += buy;
-  let avg = avgLast5(plan);
-  return {
-    targetAge: ta, purchaseMonths: buy, yearsPlan: plan,
-    totalServiceMonths: tot, pension: calcPension(avg, tot),
-    purchaseCost: avg * 0.17 * buy, avg, retireDate: retDate
-  };
-}
-
-function planA(svc, birth, sa, useUC, uc, g, joinDate) {
-  function totalAt(age) {
-    const retDate = dateAtAge(birth, age);
-    if (joinDate) return Math.max(0, monthsBetween(joinDate, retDate)) + svc;
-    return svc + Math.max(0, monthsBetween(new Date(), retDate));
-  }
-  let best = null, buy = 0, ss = Math.min(Math.max(50, sa), 70);
-  for (let age = ss; age <= 70; age++) {
-    let req = reqYears(g, age) * 12;
-    let tot = totalAt(age);
-    if (tot >= req)       { best = age; buy = 0;       break; }
-    if (req - tot <= 60)  { best = age; buy = req-tot; break; }
-  }
-  if (!best) { best = 70; buy = Math.min(Math.max(reqYears(g,70)*12 - totalAt(70), 0), 60); }
-  return mkResult(svc, birth, sa, best, buy, useUC, uc, joinDate);
-}
-
-function planB(svc, birth, sa, useUC, uc, g, joinDate) {
-  function totalAt(age) {
-    const retDate = dateAtAge(birth, age);
-    if (joinDate) return Math.max(0, monthsBetween(joinDate, retDate)) + svc;
-    return svc + Math.max(0, monthsBetween(new Date(), retDate));
-  }
-  let best = null, ss = Math.min(Math.max(50, sa), 70);
-  for (let age = ss; age <= 70; age++) {
-    let req = reqYears(g, age) * 12;
-    if (totalAt(age) >= req) { best = age; break; }
-  }
-  if (!best) best = 70;
-  return mkResult(svc, birth, sa, best, 0, useUC, uc, joinDate);
-}
-
-function planC(svc, birth, sa, useUC, uc, joinDate) {
-  const TGT = 384; // 32 سنة × 12
-  function totalAt(age) {
-    const retDate = dateAtAge(birth, age);
-    if (joinDate) return Math.max(0, monthsBetween(joinDate, retDate)) + svc;
-    return svc + Math.max(0, monthsBetween(new Date(), retDate));
-  }
-  let target = sa, found = false;
-  for (let age = sa; age <= 70; age++) {
-    if (totalAt(age) >= TGT) { target = age; found = true; break; }
-  }
-  if (!found) target = 70;
-  let r = mkResult(svc, birth, sa, target, 0, useUC, uc, joinDate);
-  r.totalServiceMonths = Math.min(r.totalServiceMonths, TGT);
-  r.pension = calcPension(r.avg, r.totalServiceMonths);
-  return r;
-}
-
-function planFixed(svc, birth, sa, useUC, uc, g, ta, joinDate) {
-  if (sa >= ta) return planB(svc, birth, sa, useUC, uc, g, joinDate);
-  const retDate = dateAtAge(birth, ta);
-  let before;
-  if (joinDate) { before = Math.max(0, monthsBetween(joinDate, retDate)) + svc; }
-  else          { before = svc + Math.max(0, monthsBetween(new Date(), retDate)); }
-  let req = reqYears(g, ta) * 12;
-  let buy = before < req ? Math.min(req - before, 60) : 0;
-  return mkResult(svc, birth, sa, ta, buy, useUC, uc, joinDate);
-}
-
-/* ─────────────────────────────────────────────────────
-   FORMAT HELPERS
-───────────────────────────────────────────────────── */
-function N(n)  { return Math.round(n).toLocaleString('ar-IQ'); }
-function FM(m) {
-  let y = Math.floor(m / 12), mo = m % 12;
-  if (!y)  return `${mo} شهر`;
-  if (!mo) return `${y} سنة`;
-  return `${y} سنة و${mo} شهر`;
-}
-
-/* ─────────────────────────────────────────────────────
-   COPY
-───────────────────────────────────────────────────── */
-function copyPlanText(plan, user, idx) {
-  const f   = user.gender === 'female';
-  const act = plan.totalServiceMonths - plan.purchaseMonths;
-  const aY  = Math.floor(act / 12), aM = act % 12;
-  const pY  = Math.floor(plan.purchaseMonths / 12), pM = plan.purchaseMonths % 12;
-  const tY  = Math.floor(plan.totalServiceMonths / 12), tM = plan.totalServiceMonths % 12;
-  let t = `\n(الجدول ${idx})\n\n${plan.title} - ${plan.desc}\n\n`;
-  t += `${f?'عمركِ':'عمرك'} اليوم: ${user.ay} سنة و${user.am} أشهر و${user.ad} أيام.\n`;
-  if (user.jat && user.jat !== 'لم يدخل') t += `${f?'عمركِ':'عمرك'} عند الانتساب: ${user.jat}.\n`;
-  const ttY = Math.floor(user.ts / 12), ttM = user.ts % 12;
-  if (user.py > 0 || user.pm > 0) t += `${f?'لديكِ':'لديك'} خدمة سابقة: ${user.py} سنة و${user.pm} شهر، `;
-  t += `إجمالي ${f?'خدمتكِ':'خدمتك'} الحالية: ${ttY} سنة و${ttM} شهر.\n\nالتسلسل:\n\n`;
-  plan.yearsPlan.forEach(r => t += `بعمر ${r.age} سنة و${user.sm||0} شهر ← الفئة ${r.cat}\n`);
-  t += `\n🔹 خدمة فعلية: ${aY} سنة و${aM} شهر.\n`;
-  if (plan.purchaseMonths > 0)
-    t += `🔹 تحتاج شراء ${pY} سنة و${pM} شهر، ليصبح المجموع ${tY} سنة و${tM} شهر.\n`;
-  else t += `🔹 إجمالي الخدمة: ${tY} سنة و${tM} شهر.\n`;
-  t += `🔹 الراتب التقاعدي: ${Math.round(plan.pension).toLocaleString()} دينار.\n\n`;
-  if (plan.purchaseMonths > 0) {
-    t += `سعر السنة (شراء): ${Math.round(plan.avg*0.17*12).toLocaleString()} دينار.\n`;
-    t += `إجمالي مبلغ الشراء: ${Math.round(plan.purchaseCost).toLocaleString()} دينار.\n`;
-  }
-  return t;
-}
-
-function copyPlan(plan, user, idx) {
-  const t  = copyPlanText(plan, user, idx);
-  const fb = () => {
-    let ta = document.createElement('textarea');
-    ta.value = t; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch (_) {}
-    document.body.removeChild(ta);
-  };
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(() => {}).catch(fb);
-  else fb();
-}
-
-/* ─────────────────────────────────────────────────────
-   PDF EXPORT
-───────────────────────────────────────────────────── */
-function exportPDF() { exportPDFPlans(PLANS); }
-
-function exportPDFPlans(chosenPlans) {
-  if (!chosenPlans || !chosenPlans.length || !USER) return;
-
-  const nm     = USER.nm || 'مشترك';
-  const gender = USER.gender === 'male' ? 'ذكر' : 'أنثى';
-  const today  = new Date().toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric'});
-  const priorStr = (USER.py > 0 || USER.pm > 0) ? FM(USER.py*12 + USER.pm) : 'لا يوجد';
-
-  const css = `
-    @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap');
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Tajawal',sans-serif;direction:rtl;text-align:right;color:#1a1208;background:#fff;font-size:12px;line-height:1.6}
-    .cover{background:linear-gradient(160deg,#060e1c 0%,#162c52 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;padding:40px 30px;min-height:100vh}
-    .cover-logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#96720a,#e0bc6e);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:24px;box-shadow:0 0 0 4px rgba(201,153,58,.3),0 8px 24px rgba(0,0,0,.4)}
-    .cover h1{font-family:'Amiri',serif;font-size:28px;color:#e0bc6e;margin-bottom:8px;text-align:center}
-    .cover p{color:#b0c4de;font-size:13px;text-align:center}
-    .cover-divider{width:200px;height:2px;background:linear-gradient(90deg,transparent,#c9993a,transparent);margin:20px 0}
-    .cover-card{background:rgba(255,255,255,.08);border:1px solid rgba(201,153,58,.3);border-radius:12px;padding:20px 28px;width:100%;max-width:420px;margin-bottom:20px}
-    .cover-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}
-    .cover-row:last-child{border-bottom:none}
-    .lbl{color:#8fb3d9;font-size:11px;font-weight:600}
-    .val{color:#f0e6c8;font-weight:700}
-    .cover-plans{width:100%;max-width:420px}
-    .cover-plan-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;color:#d0e4f7}
-    .plan-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-    .plans-wrapper{padding:0}
-    .plan-hdr-bar{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;color:#fff}
-    .plan-hdr-bar h2{font-family:'Amiri',serif;font-size:18px;font-weight:700}
-    .plan-num-badge{font-size:11px;background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px}
-    .emp-bar{display:flex;flex-wrap:wrap;background:#f0f4fa;border-bottom:1px solid #dde4f0;padding:8px 14px;gap:16px}
-    .emp-cell{display:flex;flex-direction:column;gap:1px}
-    .emp-lbl{font-size:9px;color:#7a8aaa;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
-    .emp-val{font-size:12px;color:#0a1628;font-weight:700}
-    .stats-row{display:flex;flex-wrap:wrap;border-bottom:1px solid #eee}
-    .stat-box{flex:1;min-width:80px;padding:10px 12px;text-align:center;border-left:1px solid #eee}
-    .stat-box:last-child{border-left:none}
-    .sl{font-size:9px;color:#7a8aaa;text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:3px}
-    .sv{font-size:14px;font-weight:900;color:#0a1628;font-family:'Amiri',serif}
-    .sv-good{color:#1e5c3a}.sv-warn{color:#b86800}.sv-bad{color:#7b1c1c}
-    .details-grid{padding:10px 16px;margin-bottom:10px}
-    .detail-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed rgba(10,22,40,.07);font-size:11px}
-    .detail-row:last-child{border-bottom:none}
-    .dk{color:#7a6e5f;font-weight:500}.dv{font-weight:700;color:#0a1628}
-    .dv-g{color:#1e5c3a}.dv-r{color:#7b1c1c}.dv-a{color:#b86800}
-    .rpill{display:flex;gap:6px;background:#fff6e0;border:1px solid rgba(184,104,0,.22);border-radius:6px;padding:6px 12px;font-size:10.5px;font-weight:600;color:#b86800;margin:0 16px 10px;align-items:center}
-    .tbl-title{font-size:11px;font-weight:800;color:#162c52;text-transform:uppercase;letter-spacing:.06em;padding:0 16px;margin-bottom:6px}
-    table{width:100%;border-collapse:collapse;font-size:11px}
-    th{background:linear-gradient(135deg,#0a1628,#1e4080);color:#f7f3eb;font-weight:700;font-size:9.5px;padding:7px 12px;text-align:center}
-    td{padding:5px 12px;text-align:center;border-bottom:1px solid rgba(10,22,40,.06)}
-    tr.r5  td{background:#fff9e0;font-weight:600}
-    tr.rret td{background:#e4f7ec;color:#1e5c3a;font-weight:900}
-    tr:nth-child(even) td{background:rgba(10,22,40,.018)}
-    tr.r5:nth-child(even) td, tr.rret:nth-child(even) td{background:unset}
-    .plan-separator{border:none;border-top:2px dashed #dde4f0;margin:20px 16px}
-    .plan-page{padding-bottom:20px}
-    .page-footer{text-align:center;padding:16px;font-size:9.5px;color:#9a8e7f;border-top:1px solid #eee;margin-top:14px}
-    @media print{
-      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .cover{min-height:initial;page-break-after:always}
-      .plan-page{page-break-inside:avoid}
-      @page{margin:12mm 10mm}
-    }
-  `;
-
-  let body = `<div class="cover">
-    <div class="cover-logo">🏛️</div>
-    <h1>جداول التقاعد الاختياري</h1>
-    <p>جداول تقاعدية محسوبة وفق نظام التقاعد الاختياري</p>
-    <div class="cover-divider"></div>
-    <div class="cover-card">
-      <div class="cover-row"><span class="lbl">الاسم</span><span class="val">${nm}</span></div>
-      <div class="cover-row"><span class="lbl">الجنس</span><span class="val">${gender}</span></div>
-      <div class="cover-row"><span class="lbl">العمر الحالي</span><span class="val">${USER.ay} سنة و${USER.am} شهر</span></div>
-      <div class="cover-row"><span class="lbl">إجمالي الخدمة الحالية</span><span class="val">${FM(USER.ts)}</span></div>
-      <div class="cover-row"><span class="lbl">الخدمة السابقة</span><span class="val">${priorStr}</span></div>
-      <div class="cover-row"><span class="lbl">عدد الخطط</span><span class="val">${chosenPlans.length} ${chosenPlans.length === 1 ? 'خطة' : 'خطط'}</span></div>
-      <div class="cover-row"><span class="lbl">تاريخ التقرير</span><span class="val">${today}</span></div>
-    </div>
-    <div class="cover-plans">
-      ${chosenPlans.map((p,i)=>`
-        <div class="cover-plan-row">
-          <div class="plan-dot" style="background:${COLORS[i]||'#2a5298'}"></div>
-          <span>${p.title} — ${p.desc}</span>
-          <span style="margin-right:auto;color:#e0bc6e;font-weight:700">${N(p.pension)} د.ع</span>
-        </div>`).join('')}
-    </div>
-    <div style="margin-top:20px;text-align:center">
-      <img src="data:image/jpeg;base64,${QR_B64}"
-           style="width:100px;height:100px;border:3px solid rgba(201,153,58,.5);border-radius:10px;padding:4px;background:rgba(255,255,255,.1)"
-           alt="QR Code"/>
-      <p style="color:#e0bc6e;font-size:11px;margin-top:8px;font-weight:600">امسح الكود للتواصل | linktr.ee/Daman2026</p>
-    </div>
+function buildPlanCard(plan,ci,nm,g,age,prevMo,ts,targetCatForLast5){
+  const ac=PLAN_ACCENT[ci]||'ac1',ic=PLAN_ICON_C[ci]||'ic1',em=PLAN_EMOJI[ci]||'📋',n=ci+1;
+  const hasBuy=plan.purchaseMonths>0,actual=plan.totalServiceMonths-plan.purchaseMonths,future=Math.max(0,actual-ts);
+  const rawP=plan.avg*0.025*plan.totalServiceMonths/12,afterCap=Math.min(rawP,plan.avg*0.8);
+  const capNote=afterCap<350000?' — <span style="color:var(--amber)">طُبِّق الحد الأدنى 350,000 د.ع (م.36)</span>':(rawP>plan.avg*0.8?' — <span style="color:var(--amber)">طُبِّق الحد الأقصى 80% (م.36)</span>':'');
+  let tbody='';const last=plan.yearsPlan.length-1;
+  plan.yearsPlan.forEach((r,i)=>{
+    const is5=i>=plan.yearsPlan.length-5,isRet=i===last,cls=isRet?'rret':(is5?'r5':'');
+    const cp=`<span class="cpill${r.cat===15?' c15':''}">${r.cat}</span>`;
+    tbody+=`<tr class="${cls}"><td>${r.age} سنة</td><td>${cp}</td></tr>`;
+  });
+  const copyBtn=`<button class="copy-btn no-print" data-i="${n}">📋 نسخ</button>`;
+  return`<div class="plan-card ${ac}" id="plan-card-${n}">
+  <div class="plan-hdr"><div class="plan-hdr-l"><div class="plan-icon ${ic}">${em}</div><div><div class="plan-seq">الخطة ${n}</div><div class="plan-name">${plan.title}</div><div class="plan-desc">${plan.desc}</div></div></div>${copyBtn}</div>
+  <div class="plan-stats">
+    <div class="pst"><div class="pst-l">سن التقاعد</div><div class="pst-v">${plan.targetAge}</div><div class="pst-s">سنة · ${plan.retireDate.getFullYear()}</div></div>
+    <div class="pst"><div class="pst-l">مدة الخدمة</div><div class="pst-v">${Math.floor(plan.totalServiceMonths/12)}</div><div class="pst-s">سنة و${plan.totalServiceMonths%12} شهر</div></div>
+    <div class="pst"><div class="pst-l">الراتب التقاعدي</div><div class="pst-v g">${N(plan.pension)}</div><div class="pst-s">د.ع / شهرياً</div></div>
+    ${hasBuy?`<div class="pst"><div class="pst-l">أشهر الشراء</div><div class="pst-v w">${plan.purchaseMonths}</div><div class="pst-s">شهر</div></div><div class="pst"><div class="pst-l">تكلفة الشراء</div><div class="pst-v b">${N(plan.purchaseCost)}</div><div class="pst-s">دينار</div></div>`:''}
   </div>
-  <div class="plans-wrapper">`;
+  <div class="plan-body">
+    <div class="plan-user-row"><span>👤 <b>${nm||'—'}</b></span><span>🎂 <b>${age.years} سنة و${age.months} شهر</b></span><span>⏳ خدمة حالية: <b>${FM(ts)}</b></span>${prevMo>0?`<span>🗂️ خدمة سابقة: <b>${FM(prevMo)}</b></span>`:''}</div>
+    <div class="drows">
+      <div class="dr"><span class="dk">📅 تاريخ التقاعد المتوقع</span><span class="dv">${fmtDate(plan.retireDate)}</span></div>
+      <div class="dr"><span class="dk">⏱️ خدمة فعلية</span><span class="dv">${FM(actual)}</span></div>
+      ${future>0?`<div class="dr"><span class="dk">🔮 خدمة مستقبلية</span><span class="dv">${FM(future)}</span></div>`:''}
+      ${hasBuy?`<div class="dr"><span class="dk">🛒 أشهر الشراء المطلوبة</span><span class="dv w">${plan.purchaseMonths} شهر — ${FM(plan.purchaseMonths)}</span></div>`:''}
+      <div class="dr"><span class="dk">📋 إجمالي الخدمة</span><span class="dv">${FM(plan.totalServiceMonths)}</span></div>
+      <div class="dr"><span class="dk">💵 متوسط الأجر (آخر 5 سنوات)</span><span class="dv">${N(plan.avg)} د.ع<span style="font-size:.67rem;color:var(--muted);font-weight:400;display:block;margin-top:2px">${targetCatForLast5?`مستقر على الفئة ${targetCatForLast5} — ${N(SAL[targetCatForLast5])} د.ع`:plan.yearsPlan.slice(-5).map(r=>`ف${r.cat}:${N(SAL[r.cat])}`).join(' + ')}</span></span></div>
+      <div class="dr"><span class="dk">💰 الراتب التقاعدي الشهري</span><span class="dv g">${N(plan.pension)} د.ع<span style="font-size:.66rem;color:var(--green2);font-weight:400;display:block;margin-top:2px;opacity:.9">${N(plan.avg)} × 2.5% × ${plan.totalServiceMonths} شهر ÷ 12${capNote}</span></span></div>
+      ${hasBuy?`<div class="dr"><span class="dk">💸 سعر الشهر الواحد</span><span class="dv">${N(plan.avg*0.17)} د.ع</span></div><div class="dr"><span class="dk">💸 سعر السنة الواحدة</span><span class="dv">${N(plan.avg*0.17*12)} د.ع</span></div><div class="dr"><span class="dk">💸 إجمالي مبلغ الشراء</span><span class="dv b">${N(plan.purchaseCost)} د.ع</span></div>`:''}
+    </div>
+    <div class="rpill">⚠️ يستحق الراتب عند <b style="margin:0 3px">إكمال</b> سن ${plan.targetAge} وليس عند مجرد بلوغه</div>
+    <div><div class="tbl-head"><h4>📊 جدول تدرج الفئات الوظيفية</h4><div class="tleg"><div class="tleg-i"><div class="tdot ldy"></div>آخر 5 سنوات</div><div class="tleg-i"><div class="tdot ldg"></div>سنة التقاعد</div></div></div>
+    <div class="tbl-wrap"><table class="ctbl"><thead><tr><th>السن</th><th>الفئة</th></tr></thead><tbody>${tbody}</tbody></table></div></div>
+  </div></div>`;
+}
 
-  chosenPlans.forEach((plan, pi) => {
-    const color  = COLORS[pi] || '#2a5298';
-    const hasBuy = plan.purchaseMonths > 0;
-    const actual = plan.totalServiceMonths - plan.purchaseMonths;
-    const future = Math.max(0, actual - USER.ts);
-    const lastIdx= plan.yearsPlan.length - 1;
-    let tRows = '';
-    plan.yearsPlan.forEach((r,i) => {
-      const is5  = i >= plan.yearsPlan.length - 5;
-      const isRet= i === lastIdx;
-      const cls  = isRet ? 'rret' : (is5 ? 'r5' : '');
-      tRows += `<tr class="${cls}"><td>${r.age} سنة</td><td>فئة ${r.cat}</td></tr>`;
-    });
-    const sep = pi > 0 ? '<hr class="plan-separator">' : '';
+function decodeLinkPayload(){
+  const hash=window.location.hash;
+  const isV3=hash.startsWith('#s='),isOld=hash.startsWith('#share=');
+  if(!isV3&&!isOld)return null;
+  try{
+    const rawEnc=isV3?hash.slice(3):hash.slice(7);
+    const encoded=rawEnc.replace(/-/g,'+').replace(/_/g,'/')+'=='.slice(0,(4-rawEnc.length%4)%4);
+    return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+  }catch(e){console.warn('decode error',e);return null;}
+}
 
-    // حساب معلومة الحد
-    const rawP = plan.avg * 0.025 * plan.totalServiceMonths / 12;
-    const afterCap = Math.min(rawP, plan.avg * 0.8);
-    const capNote  = afterCap < 350000
-      ? ' — طُبِّق الحد الأدنى 350,000 د.ع (م.36)'
-      : (rawP > plan.avg * 0.8 ? ' — طُبِّق الحد الأقصى 80% (م.36)' : '');
+function parseSharedPayload(payload){
+  let u_nm,u_g,u_ay,u_am,u_ts,u_py,u_pm,u_sa,plans;
+  if(payload.v===3){
+    const u=payload.u;u_nm=u[0];u_g=u[1]===1?'male':'female';u_ay=u[2];u_am=u[3];u_ts=u[4];u_py=u[5];u_pm=u[6];u_sa=u[7]||0;
+    const descs=['أقرب عمر تقاعدي مع شراء','أقرب عمر تقاعدي بدون شراء','تقاعد عند إكمال '+(u_g==='male'?'63':'58')+' سنة','إكمال خدمة 32 سنة (أعلى راتب)'];
+    plans=payload.p.map((p,i)=>({title:`الخطة ${i+1}`,desc:descs[i]||`خطة ${i+1}`,targetAge:p[0],totalServiceMonths:p[1],purchaseMonths:p[2],pension:p[3]*1000,avg:p[4]*1000,purchaseCost:p[5]*1000,retireDate:new Date(p[6],0,1),yearsPlan:buildCatPlan(u_sa,p[0],p[7])}));
+  }else if(payload.v===2){
+    const u=payload.u;u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=u.sa||0;
+    plans=payload.plans.map(p=>({title:p.ti,desc:p.de,targetAge:p.ag,totalServiceMonths:p.mo,purchaseMonths:p.bu,pension:p.pe,avg:p.av,purchaseCost:p.co,retireDate:new Date(p.rd),yearsPlan:buildCatPlan(u_sa,p.ag,p.sc)}));
+  }else{
+    const u=payload.u;u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=0;
+    plans=payload.plans.map(p=>({title:p.title,desc:p.desc,targetAge:p.age,totalServiceMonths:p.mo,purchaseMonths:p.buy,pension:p.pension,avg:p.avg,purchaseCost:p.cost,retireDate:new Date(p.rd),yearsPlan:p.yp?p.yp.map((cat,idx)=>({age:p.age-p.yp.length+1+idx,cat})):buildCatPlan(0,p.age,1)}));
+  }
+  return{user:{nm:u_nm,gender:u_g,ay:u_ay,am:u_am,ts:u_ts,py:u_py||0,pm:u_pm||0,sm:0,ad:0,sa:u_sa},plans};
+}
 
-    body += `${sep}
+function exportPDFPlans(PLANS,USER,QR_B64,QR_LINK){
+  if(!PLANS||!PLANS.length||!USER)return;
+  const nm=USER.nm||'مشترك',gender=USER.gender==='male'?'ذكر':'أنثى';
+  const today=new Date().toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric'});
+  const priorStr=(USER.py>0||USER.pm>0)?FM(USER.py*12+USER.pm):'لا يوجد';
+  const css=`@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Tajawal',sans-serif;direction:rtl;text-align:right;color:#18120a;background:#fff;font-size:12px;line-height:1.6}
+.cover{background:linear-gradient(160deg,#050d1a 0%,#112240 60%,#1d3461 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;padding:40px 30px;min-height:100vh}
+.cover-logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#a07820,#f0cc70);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:24px;box-shadow:0 0 0 4px rgba(212,170,80,.3),0 8px 24px rgba(0,0,0,.4)}
+.cover h1{font-family:'Amiri',serif;font-size:28px;color:#f0cc70;margin-bottom:8px;text-align:center}.cover p{color:#b0c4de;font-size:13px;text-align:center}
+.cover-divider{width:200px;height:2px;background:linear-gradient(90deg,transparent,#d4aa50,transparent);margin:20px 0}
+.cover-card{background:rgba(255,255,255,.08);border:1px solid rgba(212,170,80,.28);border-radius:12px;padding:20px 28px;width:100%;max-width:420px;margin-bottom:20px}
+.cover-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}.cover-row:last-child{border-bottom:none}
+.lbl{color:#8fb3d9;font-size:11px;font-weight:600}.val{color:#f0e6c8;font-weight:700}
+.cover-plans{width:100%;max-width:420px}
+.cover-plan-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;color:#d0e4f7}
+.plan-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.plans-wrapper{padding:0}
+.plan-hdr-bar{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;color:#fff}
+.plan-hdr-bar h2{font-family:'Amiri',serif;font-size:18px;font-weight:700}
+.plan-num-badge{font-size:11px;background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px}
+.emp-bar{display:flex;flex-wrap:wrap;background:#f0f4fa;border-bottom:1px solid #dde4f0;padding:8px 14px;gap:16px}
+.emp-cell{display:flex;flex-direction:column;gap:1px}.emp-lbl{font-size:9px;color:#7a8aaa;text-transform:uppercase;letter-spacing:.05em;font-weight:700}.emp-val{font-size:12px;color:#0a1628;font-weight:700}
+.stats-row{display:flex;flex-wrap:wrap;border-bottom:1px solid #eee}
+.stat-box{flex:1;min-width:80px;padding:10px 12px;text-align:center;border-left:1px solid #eee}.stat-box:last-child{border-left:none}
+.sl{font-size:9px;color:#7a8aaa;text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:3px}
+.sv{font-size:14px;font-weight:900;color:#0a1628;font-family:'Amiri',serif}.sv-good{color:#1a5c38}.sv-warn{color:#c07800}.sv-bad{color:#8b1c1c}
+.details-grid{padding:10px 16px;margin-bottom:10px}
+.detail-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed rgba(10,22,40,.07);font-size:11px}.detail-row:last-child{border-bottom:none}
+.dk{color:#8a7a68;font-weight:500}.dv{font-weight:700;color:#0a1628}.dv-g{color:#1a5c38}.dv-r{color:#8b1c1c}.dv-a{color:#c07800}
+.rpill{display:flex;gap:6px;background:#fff8e6;border:1px solid rgba(192,120,0,.22);border-radius:6px;padding:6px 12px;font-size:10.5px;font-weight:600;color:#c07800;margin:0 16px 10px;align-items:center}
+.tbl-title{font-size:11px;font-weight:800;color:#1d3461;text-transform:uppercase;letter-spacing:.06em;padding:0 16px;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;font-size:11px}th{background:linear-gradient(135deg,#0a1628,#2a5298);color:#f0e8d0;font-weight:700;font-size:9.5px;padding:7px 12px;text-align:center}td{padding:5px 12px;text-align:center;border-bottom:1px solid rgba(10,22,40,.06)}
+tr.r5 td{background:#fff9e0;font-weight:600}tr.rret td{background:#e6f7ee;color:#1a5c38;font-weight:900}tr:nth-child(even) td{background:rgba(10,22,40,.018)}
+tr.r5:nth-child(even) td,tr.rret:nth-child(even) td{background:unset}
+.plan-separator{border:none;border-top:2px dashed #dde4f0;margin:20px 16px}
+.plan-page{padding-bottom:20px}
+.page-footer{text-align:center;padding:16px;font-size:9.5px;color:#9a8e7f;border-top:1px solid #eee;margin-top:14px}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.cover{min-height:initial;page-break-after:always}.plan-page{page-break-inside:avoid}@page{margin:12mm 10mm}}`;
+
+  let body=`<div class="cover"><div class="cover-logo">🏛️</div><h1>جداول التقاعد الاختياري</h1><p>جداول تقاعدية محسوبة وفق نظام التقاعد الاختياري</p><div class="cover-divider"></div>
+  <div class="cover-card">
+    <div class="cover-row"><span class="lbl">الاسم</span><span class="val">${nm}</span></div>
+    <div class="cover-row"><span class="lbl">الجنس</span><span class="val">${gender}</span></div>
+    <div class="cover-row"><span class="lbl">العمر الحالي</span><span class="val">${USER.ay} سنة و${USER.am} شهر</span></div>
+    <div class="cover-row"><span class="lbl">إجمالي الخدمة</span><span class="val">${FM(USER.ts)}</span></div>
+    <div class="cover-row"><span class="lbl">الخدمة السابقة</span><span class="val">${priorStr}</span></div>
+    <div class="cover-row"><span class="lbl">عدد الخطط</span><span class="val">${PLANS.length} ${PLANS.length===1?'خطة':'خطط'}</span></div>
+    <div class="cover-row"><span class="lbl">تاريخ التقرير</span><span class="val">${today}</span></div>
+  </div>
+  <div class="cover-plans">${PLANS.map((p,i)=>`<div class="cover-plan-row"><div class="plan-dot" style="background:${['#2a5298','#1a5c38','#d4aa50','#8b2248','#4a2878'][i]||'#2a5298'}"></div><span>${p.title} — ${p.desc}</span><span style="margin-right:auto;color:#f0cc70;font-weight:700">${N(p.pension)} د.ع</span></div>`).join('')}</div>
+  <div style="margin-top:20px;text-align:center"><img src="data:image/jpeg;base64,QR_PLACEHOLDER" style="width:100px;height:100px;border:3px solid rgba(212,170,80,.5);border-radius:10px;padding:4px;background:rgba(255,255,255,.1)" alt="QR"/><p style="color:#f0cc70;font-size:11px;margin-top:8px;font-weight:600">امسح الكود للتواصل | linktr.ee/Daman2026</p></div>
+  </div><div class="plans-wrapper">`;
+
+  const PCOLS=['#2a5298','#1a5c38','#d4aa50','#8b2248','#4a2878'];
+  PLANS.forEach((plan,pi)=>{
+    const color=PCOLS[pi]||'#2a5298',hasBuy=plan.purchaseMonths>0,actual=plan.totalServiceMonths-plan.purchaseMonths,future=Math.max(0,actual-USER.ts),lastIdx=plan.yearsPlan.length-1;
+    const rawP=plan.avg*0.025*plan.totalServiceMonths/12,afterCap=Math.min(rawP,plan.avg*0.8);
+    const capNote=afterCap<350000?' — طُبِّق الحد الأدنى 350,000 د.ع (م.36)':(rawP>plan.avg*0.8?' — طُبِّق الحد الأقصى 80% (م.36)':'');
+    let tRows='';plan.yearsPlan.forEach((r,i)=>{const is5=i>=plan.yearsPlan.length-5,isRet=i===lastIdx,cls=isRet?'rret':(is5?'r5':'');tRows+=`<tr class="${cls}"><td>${r.age} سنة</td><td>فئة ${r.cat}</td></tr>`;});
+    body+=`${pi>0?'<hr class="plan-separator">':''}
     <div class="plan-page">
-      <div class="plan-hdr-bar" style="background:${color}">
-        <h2>${plan.title}</h2>
-        <div class="plan-num-badge">${plan.desc}</div>
-      </div>
+      <div class="plan-hdr-bar" style="background:${color}"><h2>${plan.title}</h2><div class="plan-num-badge">${plan.desc}</div></div>
       <div class="emp-bar">
         <div class="emp-cell"><div class="emp-lbl">المشترك</div><div class="emp-val">${nm}</div></div>
         <div class="emp-cell"><div class="emp-lbl">الجنس</div><div class="emp-val">${gender}</div></div>
@@ -417,12 +179,10 @@ function exportPDFPlans(chosenPlans) {
         ${(USER.py>0||USER.pm>0)?`<div class="emp-cell"><div class="emp-lbl">الخدمة السابقة</div><div class="emp-val">${priorStr}</div></div>`:''}
       </div>
       <div class="stats-row">
-        <div class="stat-box" style="border-color:${color}20"><div class="sl">سن التقاعد</div><div class="sv">${plan.targetAge} سنة</div></div>
-        <div class="stat-box" style="border-color:${color}20"><div class="sl">مدة الخدمة</div><div class="sv">${FM(plan.totalServiceMonths)}</div></div>
-        <div class="stat-box" style="background:#e4f7ec;border-color:#1e5c3a40"><div class="sl">الراتب الشهري</div><div class="sv sv-good">${N(plan.pension)} د.ع</div></div>
-        ${hasBuy?`
-        <div class="stat-box" style="background:#fff8e6;border-color:#b8680040"><div class="sl">أشهر الشراء</div><div class="sv sv-warn">${plan.purchaseMonths} شهر</div></div>
-        <div class="stat-box" style="background:#fdf0f0;border-color:#7b1c1c40"><div class="sl">تكلفة الشراء</div><div class="sv sv-bad">${N(plan.purchaseCost)} د.ع</div></div>`:''}
+        <div class="stat-box"><div class="sl">سن التقاعد</div><div class="sv">${plan.targetAge} سنة</div></div>
+        <div class="stat-box"><div class="sl">مدة الخدمة</div><div class="sv">${FM(plan.totalServiceMonths)}</div></div>
+        <div class="stat-box" style="background:#e6f7ee"><div class="sl">الراتب الشهري</div><div class="sv sv-good">${N(plan.pension)} د.ع</div></div>
+        ${hasBuy?`<div class="stat-box" style="background:#fff8e6"><div class="sl">أشهر الشراء</div><div class="sv sv-warn">${plan.purchaseMonths} شهر</div></div><div class="stat-box" style="background:#fdf0f0"><div class="sl">تكلفة الشراء</div><div class="sv sv-bad">${N(plan.purchaseCost)} د.ع</div></div>`:''}
       </div>
       <div class="details-grid">
         <div class="detail-row"><span class="dk">📅 تاريخ التقاعد المتوقع</span><span class="dv">${fmtDate(plan.retireDate)}</span></div>
@@ -431,754 +191,334 @@ function exportPDFPlans(chosenPlans) {
         ${hasBuy?`<div class="detail-row"><span class="dk">🛒 أشهر الشراء</span><span class="dv dv-a">${plan.purchaseMonths} شهر — ${FM(plan.purchaseMonths)}</span></div>`:''}
         <div class="detail-row"><span class="dk">📋 إجمالي الخدمة</span><span class="dv">${FM(plan.totalServiceMonths)}</span></div>
         <div class="detail-row"><span class="dk">💵 متوسط آخر 5 سنوات</span><span class="dv">${N(plan.avg)} د.ع</span></div>
-        <div class="detail-row">
-          <span class="dk">💰 الراتب التقاعدي الشهري</span>
-          <span class="dv dv-g">
-            ${N(plan.pension)} د.ع
-            <span style="font-size:8px;color:#1e5c3a;font-weight:400;display:block;margin-top:2px">
-              ${N(plan.avg)} × 2.5% × ${plan.totalServiceMonths} شهر ÷ 12${capNote}
-            </span>
-          </span>
-        </div>
-        ${hasBuy?`
-        <div class="detail-row"><span class="dk">💸 سعر الشهر الواحد</span><span class="dv">${N(plan.avg*0.17)} د.ع</span></div>
-        <div class="detail-row"><span class="dk">💸 سعر السنة الواحدة</span><span class="dv">${N(plan.avg*0.17*12)} د.ع</span></div>
-        <div class="detail-row"><span class="dk">💸 إجمالي مبلغ الشراء</span><span class="dv dv-r">${N(plan.purchaseCost)} د.ع</span></div>`:''}
+        <div class="detail-row"><span class="dk">💰 الراتب التقاعدي الشهري</span><span class="dv dv-g">${N(plan.pension)} د.ع<span style="font-size:8px;color:#1a5c38;font-weight:400;display:block;margin-top:2px">${N(plan.avg)} × 2.5% × ${plan.totalServiceMonths} شهر ÷ 12${capNote}</span></span></div>
+        ${hasBuy?`<div class="detail-row"><span class="dk">💸 سعر الشهر الواحد</span><span class="dv">${N(plan.avg*0.17)} د.ع</span></div><div class="detail-row"><span class="dk">💸 سعر السنة الواحدة</span><span class="dv">${N(plan.avg*0.17*12)} د.ع</span></div><div class="detail-row"><span class="dk">💸 إجمالي مبلغ الشراء</span><span class="dv dv-r">${N(plan.purchaseCost)} د.ع</span></div>`:''}
       </div>
       <div class="rpill">⚠️ يستحق الراتب عند <strong>إكمال</strong> سن ${plan.targetAge} وليس عند مجرد بلوغه</div>
       <div class="tbl-title">📊 جدول تدرج الفئات الوظيفية</div>
       <table><thead><tr><th>السن</th><th>الفئة</th></tr></thead><tbody>${tRows}</tbody></table>
-      <div class="page-footer">
-        نظام جداول التقاعد الاختياري — ${today}<br/>
-        <a href="${QR_LINK}" style="color:#c9993a;font-weight:700;text-decoration:none">${QR_LINK}</a>
-      </div>
+      <div class="page-footer">نظام جداول التقاعد الاختياري — ${today}<br/><a href="${QR_LINK}" style="color:#d4aa50;font-weight:700;text-decoration:none">${QR_LINK}</a></div>
     </div>`;
   });
-  body += '</div>';
+  body+='</div>';
 
-  const fullHTML = `<!DOCTYPE html><html lang="ar" dir="rtl">
-<head><meta charset="UTF-8"><title>تقاعد - ${nm}</title><style>${css}</style></head>
-<body>${body}</body></html>`;
-
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if (!win) { showToast('❌ يرجى السماح بفتح النوافذ المنبثقة'); return; }
-  win.document.write(fullHTML);
-  win.document.close();
-  win.onload = () => setTimeout(() => { win.focus(); win.print(); }, 1400);
+  const fullHTML=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقاعد - ${nm}</title><style>${css}</style></head><body>${body}</body></html>`;
+  const win=window.open('','_blank','width=900,height=700');
+  if(!win){showToast('❌ يرجى السماح بفتح النوافذ المنبثقة');return;}
+  win.document.write(fullHTML.replace('QR_PLACEHOLDER',QR_B64));
+  win.document.close();win.onload=()=>setTimeout(()=>{win.focus();win.print();},1400);
   showToast('✅ جاري فتح ملف PDF...');
 }
 
-/* ─────────────────────────────────────────────────────
-   RENDER HTML
-───────────────────────────────────────────────────── */
-function buildSummary(nm, g, age, jat, ts, hasJoin) {
-  const items = [
-    { l:'الاسم',         v: nm || '—' },
-    { l:'الجنس',         v: g === 'male' ? 'ذكر' : 'أنثى' },
-    { l:'العمر الحالي',  v: `${age.years} سنة و${age.months} شهر` },
-    { l:'إجمالي الخدمة', v: FM(ts) },
-  ];
-  if (hasJoin) items.push({ l:'عمر الانتساب', v: jat });
-  if (!hasJoin && USER && USER.saDisplay) items.push({ l:'عمر بدء الخدمة (تقريبي)', v: USER.saDisplay });
-  return `<div class="sum-bar">
-    <div class="sum-bar-title">📊 ملخص بيانات المشترك</div>
-    <div class="sum-items">
-      ${items.map(it=>`<div class="sum-item"><div class="si-l">${it.l}</div><div class="si-v">${it.v}</div></div>`).join('')}
-    </div>
-  </div>`;
+/*!
+ * app.js — جداول التقاعد الاختياري v5
+ */
+(function(){
+'use strict';
+
+const QR_B64 = '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';
+const QR_LINK = 'https://linktr.ee/Daman2026';
+
+/* ── RETIREMENT RULES ── */
+function reqYears(g,a){
+  if(g==='male'){if(a>=50&&a<=59)return 30;if(a>=60&&a<=62)return 20;if(a>=63)return 15;}
+  else{if(a>=50&&a<=54)return 25;if(a>=55&&a<=57)return 20;if(a>=58)return 15;}
+  return 15;
+}
+function ageDiff(birth,from){
+  let y=from.getFullYear()-birth.getFullYear(),m=from.getMonth()-birth.getMonth(),d=from.getDate()-birth.getDate();
+  if(d<0){m--;d+=new Date(from.getFullYear(),from.getMonth(),0).getDate();}
+  if(m<0){y--;m+=12;}return{years:y,months:m,days:d};
+}
+function monthsBetween(a,b){
+  let t=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth());
+  if(b.getDate()<a.getDate())t--;else if(b.getDate()>a.getDate())t++;return Math.max(0,t);
+}
+function dateAtAge(birth,age){let d=new Date(birth);d.setFullYear(d.getFullYear()+age);return d;}
+
+function idealStartCat(sa,ta){let g=(ta-sa)-5;if(g<=0)return 1;return Math.min(Math.max(15-g,1),15);}
+
+let TARGET_CAT_FOR_LAST5=null;
+
+function mkResult(svc,birth,sa,ta,buy,useUC,uc,joinDate){
+  let fc=useUC?Math.min(Math.max(uc,1),15):idealStartCat(sa,ta);
+  let plan=buildCatPlan(sa,ta,fc,TARGET_CAT_FOR_LAST5);
+  let retDate=dateAtAge(birth,ta),tot;
+  if(joinDate)tot=Math.max(0,monthsBetween(joinDate,retDate))+svc;
+  else tot=svc+Math.max(0,monthsBetween(new Date(),retDate));
+  tot+=buy;let avg=avgLast5(plan);
+  return{targetAge:ta,purchaseMonths:buy,yearsPlan:plan,totalServiceMonths:tot,pension:calcPension(avg,tot),purchaseCost:avg*0.17*buy,avg,retireDate:retDate};
+}
+function planA(svc,birth,sa,useUC,uc,g,joinDate){
+  function tot(age){const rd=dateAtAge(birth,age);if(joinDate)return Math.max(0,monthsBetween(joinDate,rd))+svc;return svc+Math.max(0,monthsBetween(new Date(),rd));}
+  let best=null,buy=0,ss=Math.min(Math.max(50,sa),70);
+  for(let age=ss;age<=70;age++){let req=reqYears(g,age)*12,t=tot(age);if(t>=req){best=age;buy=0;break;}if(req-t<=60){best=age;buy=req-t;break;}}
+  if(!best){best=70;buy=Math.min(Math.max(reqYears(g,70)*12-tot(70),0),60);}
+  return mkResult(svc,birth,sa,best,buy,useUC,uc,joinDate);
+}
+function planB(svc,birth,sa,useUC,uc,g,joinDate){
+  function tot(age){const rd=dateAtAge(birth,age);if(joinDate)return Math.max(0,monthsBetween(joinDate,rd))+svc;return svc+Math.max(0,monthsBetween(new Date(),rd));}
+  let best=null,ss=Math.min(Math.max(50,sa),70);
+  for(let age=ss;age<=70;age++){if(tot(age)>=reqYears(g,age)*12){best=age;break;}}
+  if(!best)best=70;return mkResult(svc,birth,sa,best,0,useUC,uc,joinDate);
+}
+function planC(svc,birth,sa,useUC,uc,joinDate){
+  const TGT=384;
+  function tot(age){const rd=dateAtAge(birth,age);if(joinDate)return Math.max(0,monthsBetween(joinDate,rd))+svc;return svc+Math.max(0,monthsBetween(new Date(),rd));}
+  let target=sa,found=false;
+  for(let age=sa;age<=70;age++){if(tot(age)>=TGT){target=age;found=true;break;}}
+  if(!found)target=70;let r=mkResult(svc,birth,sa,target,0,useUC,uc,joinDate);
+  r.totalServiceMonths=Math.min(r.totalServiceMonths,TGT);r.pension=calcPension(r.avg,r.totalServiceMonths);return r;
+}
+function planFixed(svc,birth,sa,useUC,uc,g,ta,joinDate){
+  if(sa>=ta)return planB(svc,birth,sa,useUC,uc,g,joinDate);
+  const retDate=dateAtAge(birth,ta);
+  let before;if(joinDate)before=Math.max(0,monthsBetween(joinDate,retDate))+svc;else before=svc+Math.max(0,monthsBetween(new Date(),retDate));
+  let req=reqYears(g,ta)*12,buy=before<req?Math.min(req-before,60):0;
+  return mkResult(svc,birth,sa,ta,buy,useUC,uc,joinDate);
 }
 
-function buildCard(plan, ci, nm, g, age, prevMo) {
-  const ac = PLAN_ACCENT[ci] || 'ac1';
-  const ic = PLAN_ICON_C[ci] || 'ic1';
-  const em = PLAN_EMOJI[ci]  || '📋';
-  const n  = ci + 1;
-  const hasBuy = plan.purchaseMonths > 0;
-  const actual = plan.totalServiceMonths - plan.purchaseMonths;
-  const future = Math.max(0, actual - USER.ts);
+/* ── STATE ── */
+let PLANS=[],USER=null;
 
-  let tbody = '';
-  const last = plan.yearsPlan.length - 1;
-  plan.yearsPlan.forEach((r, i) => {
-    const is5   = i >= plan.yearsPlan.length - 5;
-    const isRet = i === last;
-    const cls   = isRet ? 'rret' : (is5 ? 'r5' : '');
-    const cp    = `<span class="cpill${r.cat===15?' c15':''}">${r.cat}</span>`;
-    tbody += `<tr class="${cls}"><td>${r.age} سنة</td><td>${cp}</td></tr>`;
+/* ── COPY TEXT ── */
+function copyPlanText(plan,user,idx){
+  const f=user.gender==='female',act=plan.totalServiceMonths-plan.purchaseMonths;
+  const aY=Math.floor(act/12),aM=act%12,pY=Math.floor(plan.purchaseMonths/12),pM=plan.purchaseMonths%12;
+  const tY=Math.floor(plan.totalServiceMonths/12),tM=plan.totalServiceMonths%12;
+  let t=`\n(الجدول ${idx})\n\n${plan.title} - ${plan.desc}\n\n`;
+  t+=`${f?'عمركِ':'عمرك'} اليوم: ${user.ay} سنة و${user.am} أشهر و${user.ad} أيام.\n`;
+  if(user.jat&&user.jat!=='لم يدخل')t+=`${f?'عمركِ':'عمرك'} عند الانتساب: ${user.jat}.\n`;
+  const ttY=Math.floor(user.ts/12),ttM=user.ts%12;
+  if(user.py>0||user.pm>0)t+=`${f?'لديكِ':'لديك'} خدمة سابقة: ${user.py} سنة و${user.pm} شهر، `;
+  t+=`إجمالي ${f?'خدمتكِ':'خدمتك'} الحالية: ${ttY} سنة و${ttM} شهر.\n\nالتسلسل:\n\n`;
+  plan.yearsPlan.forEach(r=>t+=`بعمر ${r.age} سنة ← الفئة ${r.cat}\n`);
+  t+=`\n🔹 خدمة فعلية: ${aY} سنة و${aM} شهر.\n`;
+  if(plan.purchaseMonths>0)t+=`🔹 تحتاج شراء ${pY} سنة و${pM} شهر، ليصبح المجموع ${tY} سنة و${tM} شهر.\n`;
+  else t+=`🔹 إجمالي الخدمة: ${tY} سنة و${tM} شهر.\n`;
+  t+=`🔹 الراتب التقاعدي: ${Math.round(plan.pension).toLocaleString()} دينار.\n\n`;
+  if(plan.purchaseMonths>0){t+=`سعر السنة (شراء): ${Math.round(plan.avg*0.17*12).toLocaleString()} دينار.\n`;t+=`إجمالي مبلغ الشراء: ${Math.round(plan.purchaseCost).toLocaleString()} دينار.\n`;}
+  return t;
+}
+function copyPlan(plan,user,idx){
+  const t=copyPlanText(plan,user,idx);
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(_){}document.body.removeChild(ta);};
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(t).then(()=>{}).catch(fb);else fb();
+}
+
+/* ── ALERTS ── */
+function showAlert(msg,t){document.getElementById('results').innerHTML=`<div class="alert al-${t==='e'?'e':'w'}">${msg}</div>`;}
+function clearErrors(){document.querySelectorAll('.ctrl.field-error').forEach(e=>e.classList.remove('field-error'));}
+function markErr(el){el.classList.add('field-error');el.addEventListener('change',()=>el.classList.remove('field-error'),{once:true});}
+
+/* ── DROPDOWNS ── */
+function populate(){
+  const cy=new Date().getFullYear();
+  let yb='<option value="">السنة</option>';for(let y=cy;y>=1950;y--)yb+=`<option value="${y}">${y}</option>`;
+  let yj='<option value="">السنة</option>';for(let y=cy;y>=1970;y--)yj+=`<option value="${y}">${y}</option>`;
+  document.getElementById('birthYear').innerHTML=yb;document.getElementById('joinYear').innerHTML=yj;
+  const mb='<option value="">الشهر</option>'+[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}">${m}</option>`).join('');
+  document.getElementById('birthMonth').innerHTML=mb;document.getElementById('joinMonth').innerHTML=mb;
+  document.getElementById('birthDay').innerHTML='<option value="">اليوم</option>';
+  document.getElementById('joinDay').innerHTML='<option value="">اليوم</option>';
+  let ch='<option value="">— تلقائي —</option>';for(let i=1;i<=15;i++)ch+=`<option value="${i}">فئة ${i}  ←  ${SAL[i].toLocaleString()} د.ع</option>`;
+  document.getElementById('currentCategory').innerHTML=ch;
+}
+function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+window.onYearChange=function(p){
+  const ye=document.getElementById(p+'Year'),me=document.getElementById(p+'Month'),de=document.getElementById(p+'Day');
+  if(!+ye.value){me.disabled=true;me.value='';de.disabled=true;de.value='';return;}
+  me.disabled=false;de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';
+};
+window.onMonthChange=function(p){
+  const ye=document.getElementById(p+'Year'),me=document.getElementById(p+'Month'),de=document.getElementById(p+'Day');
+  const y=+ye.value,m=+me.value;
+  if(!m){de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';return;}
+  const max=daysInMonth(y||2000,m);let h='<option value="">اليوم</option>';for(let d=1;d<=max;d++)h+=`<option value="${d}">${d}</option>`;
+  de.innerHTML=h;de.disabled=false;if(+de.value>max)de.value='';
+};
+
+function reset(){
+  document.getElementById('nameInput').value='';document.getElementById('genderSelect').value='';
+  ['birthYear','birthMonth','birthDay','joinYear','joinMonth','joinDay'].forEach(id=>{
+    const el=document.getElementById(id);el.value='';
+    if(id!=='birthYear'&&id!=='joinYear')el.disabled=true;
+    if(id==='birthDay'||id==='joinDay')el.innerHTML='<option value="">اليوم</option>';
   });
-
-  // حساب ملاحظة الحد
-  const rawP = plan.avg * 0.025 * plan.totalServiceMonths / 12;
-  const afterCap = Math.min(rawP, plan.avg * 0.8);
-  const capNote  = afterCap < 350000
-    ? ' — <span style="color:var(--amber)">طُبِّق الحد الأدنى 350,000 د.ع (م.36)</span>'
-    : (rawP > plan.avg*0.8 ? ' — <span style="color:var(--amber)">طُبِّق الحد الأقصى 80% (م.36)</span>' : '');
-
-  return `
-  <div class="plan-card ${ac}" id="plan-card-${n}">
-    <div class="plan-hdr">
-      <div class="plan-hdr-l">
-        <div class="plan-icon ${ic}">${em}</div>
-        <div>
-          <div class="plan-seq">الخطة ${n}</div>
-          <div class="plan-name">${plan.title}</div>
-          <div class="plan-desc">${plan.desc}</div>
-        </div>
-      </div>
-      <button class="copy-btn no-print" data-i="${n}">📋 نسخ</button>
-    </div>
-    <div class="plan-stats">
-      <div class="pst">
-        <div class="pst-l">سن التقاعد</div>
-        <div class="pst-v">${plan.targetAge}</div>
-        <div class="pst-s">سنة · ${plan.retireDate.getFullYear()}</div>
-      </div>
-      <div class="pst">
-        <div class="pst-l">مدة الخدمة</div>
-        <div class="pst-v">${Math.floor(plan.totalServiceMonths/12)}</div>
-        <div class="pst-s">سنة و${plan.totalServiceMonths%12} شهر</div>
-      </div>
-      <div class="pst">
-        <div class="pst-l">الراتب التقاعدي</div>
-        <div class="pst-v g">${N(plan.pension)}</div>
-        <div class="pst-s">د.ع / شهرياً</div>
-      </div>
-      ${hasBuy?`
-      <div class="pst"><div class="pst-l">أشهر الشراء</div><div class="pst-v w">${plan.purchaseMonths}</div><div class="pst-s">شهر</div></div>
-      <div class="pst"><div class="pst-l">تكلفة الشراء</div><div class="pst-v b">${N(plan.purchaseCost)}</div><div class="pst-s">دينار</div></div>`:''}
-    </div>
-    <div class="plan-body">
-      <div class="plan-user-row">
-        <span>👤 <b>${nm||'—'}</b></span>
-        <span>🎂 <b>${age.years} سنة و${age.months} شهر</b></span>
-        <span>⏳ خدمة حالية: <b>${FM(USER.ts)}</b></span>
-        ${prevMo>0?`<span>🗂️ خدمة سابقة: <b>${FM(prevMo)}</b></span>`:''}
-      </div>
-      <div class="drows">
-        <div class="dr"><span class="dk">📅 تاريخ التقاعد المتوقع</span><span class="dv">${fmtDate(plan.retireDate)}</span></div>
-        <div class="dr"><span class="dk">⏱️ خدمة فعلية</span><span class="dv">${FM(actual)}</span></div>
-        ${future>0?`<div class="dr"><span class="dk">🔮 خدمة مستقبلية</span><span class="dv">${FM(future)}</span></div>`:''}
-        ${hasBuy?`<div class="dr"><span class="dk">🛒 أشهر الشراء المطلوبة</span><span class="dv w">${plan.purchaseMonths} شهر — ${FM(plan.purchaseMonths)}</span></div>`:''}
-        <div class="dr"><span class="dk">📋 إجمالي الخدمة المحسوبة</span><span class="dv">${FM(plan.totalServiceMonths)}</span></div>
-        <div class="dr">
-          <span class="dk">💵 متوسط الأجر (آخر 5 سنوات)</span>
-          <span class="dv">
-            ${N(plan.avg)} د.ع
-            <span style="font-size:.69rem;color:var(--muted);font-weight:400;display:block;margin-top:2px">
-              ${TARGET_CAT_FOR_LAST5
-                ? `مستقر على الفئة ${TARGET_CAT_FOR_LAST5} — ${N(SAL[TARGET_CAT_FOR_LAST5])} د.ع`
-                : plan.yearsPlan.slice(-5).map(r=>`ف${r.cat}:${N(SAL[r.cat])}`).join(' + ')}
-            </span>
-          </span>
-        </div>
-        <div class="dr">
-          <span class="dk">💰 الراتب التقاعدي الشهري</span>
-          <span class="dv g">
-            ${N(plan.pension)} د.ع
-            <span style="font-size:.68rem;color:var(--green-md);font-weight:400;display:block;margin-top:2px;opacity:.9">
-              ${N(plan.avg)} × 2.5% × ${plan.totalServiceMonths} شهر ÷ 12${capNote}
-            </span>
-          </span>
-        </div>
-        ${hasBuy?`
-        <div class="dr"><span class="dk">💸 سعر الشهر الواحد (شراء)</span><span class="dv">${N(plan.avg*0.17)} د.ع</span></div>
-        <div class="dr"><span class="dk">💸 سعر السنة الواحدة (شراء)</span><span class="dv">${N(plan.avg*0.17*12)} د.ع</span></div>
-        <div class="dr"><span class="dk">💸 إجمالي مبلغ الشراء</span><span class="dv b">${N(plan.purchaseCost)} د.ع</span></div>`:''}
-      </div>
-      <div class="rpill">⚠️ يستحق الراتب عند <b style="margin:0 3px">إكمال</b> سن ${plan.targetAge} وليس عند مجرد بلوغه</div>
-      <div>
-        <div class="tbl-head">
-          <h4>📊 جدول تدرج الفئات الوظيفية</h4>
-          <div class="tleg">
-            <div class="tleg-i"><div class="tdot ldy"></div>آخر 5 سنوات</div>
-            <div class="tleg-i"><div class="tdot ldg"></div>سنة التقاعد</div>
-          </div>
-        </div>
-        <div class="tbl-wrap">
-          <table class="ctbl">
-            <thead><tr><th>السن</th><th>الفئة</th></tr></thead>
-            <tbody>${tbody}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>`;
+  document.getElementById('priorYears').value='';document.getElementById('priorMonths').value='';
+  document.getElementById('fixedCatNo').checked=true;document.getElementById('fixedCatYes').checked=false;
+  document.getElementById('fixedCatSelectWrap').style.display='none';document.getElementById('fixedCatSelect').value='';
+  TARGET_CAT_FOR_LAST5=null;document.getElementById('results').innerHTML='';
+  ['pdfBtn','shareBtn','copyAllBtn'].forEach(id=>document.getElementById(id).style.display='none');
+  const nav=document.getElementById('planNav');if(nav)nav.style.display='none';
+  document.body.classList.remove('has-nav');PLANS=[];USER=null;populate();
 }
 
-/* ─────────────────────────────────────────────────────
-   GENERATE
-───────────────────────────────────────────────────── */
-function clearFieldErrors() {
-  document.querySelectorAll('.ctrl.field-error').forEach(el => el.classList.remove('field-error'));
-}
-function markError(el) {
-  el.classList.add('field-error');
-  el.addEventListener('change', () => el.classList.remove('field-error'), { once: true });
-}
-
-function generate() {
-  try {
-    clearFieldErrors();
-    let hasError = false;
-
-    const gEl = document.getElementById('genderSelect');
-    const g   = gEl.value;
-    if (!g) { markError(gEl); hasError = true; }
-
-    const bDEl = document.getElementById('birthDay');
-    const bMEl = document.getElementById('birthMonth');
-    const bYEl = document.getElementById('birthYear');
-    const bD = +bDEl.value, bM = bMEl.value, bY = bYEl.value;
-    if (!bD || !bM || !bY) {
-      if (!bY) markError(bYEl);
-      if (!bM) markError(bMEl);
-      if (!bD) markError(bDEl);
-      hasError = true;
-    }
-    if (hasError) { showAlert('❌ يرجى إدخال تاريخ الميلاد والجنس', 'e'); return; }
-
-    const birth = new Date(+bY, +bM - 1, bD);
-    if (isNaN(birth.getTime()) || birth > new Date()) {
-      markError(bDEl); markError(bMEl); markError(bYEl);
-      showAlert('❌ تاريخ الميلاد غير صحيح', 'e'); return;
-    }
-
-    const nm    = document.getElementById('nameInput').value.trim() || 'مشترك';
-    const cv    = document.getElementById('currentCategory').value;
-    const useUC = cv !== '';
-    const uc    = useUC ? +cv : 1;
-
-    const fixedCatYes = document.getElementById('fixedCatYes').checked;
-    const fixedCatVal = document.getElementById('fixedCatSelect').value;
-    if (fixedCatYes && !fixedCatVal) { showAlert('⚠️ يرجى اختيار الفئة المستهدفة', 'w'); return; }
-    if (fixedCatYes && fixedCatVal && useUC && +fixedCatVal < uc) {
-      showAlert(`❌ الفئة المستهدفة (${fixedCatVal}) لا يمكن أن تكون أقل من الفئة الحالية (${uc})`, 'e'); return;
-    }
-
-    TARGET_CAT_FOR_LAST5 = (fixedCatYes && fixedCatVal) ? +fixedCatVal : null;
-    FIXED_CAT_FOR_AVG = null;
-
-    const jD = +document.getElementById('joinDay').value;
-    const jM = document.getElementById('joinMonth').value;
-    const jY = document.getElementById('joinYear').value;
-    let jd = null, ja = null;
-    if (jD && jM && jY) {
-      const j = new Date(+jY, +jM - 1, jD);
-      if (!isNaN(j.getTime()) && j <= new Date()) { jd = j; ja = ageDiff(birth, j); }
-    }
-
-    let pY = +document.getElementById('priorYears').value  || 0;
-    let pM = +document.getElementById('priorMonths').value || 0;
-    if (pM >= 12) { pY += Math.floor(pM/12); pM %= 12; }
-    const prior = pY * 12 + pM;
-
-    const ageNow = ageDiff(birth, new Date());
-    let sa, sm;
-    if (ja) {
-      sa = ja.years; sm = ja.months;
-    } else if (prior > 0) {
-      const ageNowM = ageNow.years * 12 + ageNow.months;
-      const saM = Math.max(0, ageNowM - prior);
-      sa = Math.floor(saM / 12); sm = saM % 12;
-    } else {
-      sa = ageNow.years; sm = ageNow.months;
-    }
-    sa = Math.min(Math.max(sa, 15), 100);
-
-    const svcJ = jd ? monthsBetween(jd, new Date()) : 0;
-    const ts   = svcJ + prior;
-
-    if (ageNow.years >= 50 && !jd && prior === 0) {
-      showAlert('⚠️ العمر 50 أو أكثر يتطلب تاريخ انتساب أو خدمة سابقة', 'w'); return;
-    }
-
-    const jat = ja
-      ? `${ja.years} سنة و${ja.months} أشهر و${ja.days} أيام`
-      : 'لم يدخل';
-
-    USER = {
-      gender: g, nm, ay: ageNow.years, am: ageNow.months, ad: ageNow.days,
-      jat, py: pY, pm: pM, ts, sa, sm,
-      saDisplay: jd ? null : (prior > 0 ? `${sa} سنة و${sm} شهر (محسوب)` : null)
-    };
-
-    const raw = [];
-    const p1  = planA(prior, birth, sa, useUC, uc, g, jd);
-    if (p1.purchaseMonths > 0) raw.push({ ...p1, desc:'أقرب عمر تقاعدي مع شراء' });
-
-    raw.push({ ...planB(prior, birth, sa, useUC, uc, g, jd), desc:'أقرب عمر تقاعدي بدون شراء' });
-
-    const p4age = g === 'male' ? 63 : 58;
-    if (ageNow.years < p4age) {
-      const pD = planFixed(prior, birth, sa, useUC, uc, g, p4age, jd);
-      raw.push({ ...pD, desc:`تقاعد عند إكمال ${p4age} سنة` });
-    }
-
-    const pC  = planC(prior, birth, sa, useUC, uc, jd);
-    const dupC= raw.some(p => p.targetAge === pC.targetAge && p.purchaseMonths === pC.purchaseMonths);
-    if (!dupC) raw.push({ ...pC, desc:'إكمال خدمة 32 سنة (أعلى راتب)' });
-
-    const seen = new Set(), uniq = [];
-    for (const p of raw) {
-      const k = `${p.targetAge}-${p.purchaseMonths}`;
-      if (!seen.has(k)) { seen.add(k); uniq.push(p); }
-    }
-    uniq.sort((a, b) => a.targetAge - b.targetAge);
-    PLANS = uniq.map((p, i) => ({ ...p, title:`الخطة ${i+1}` }));
-
-    let html = buildSummary(nm, g, ageNow, jat, ts, !!jd);
-    PLANS.forEach((p, i) => html += buildCard(p, i, nm, g, ageNow, prior));
-    document.getElementById('results').innerHTML = html;
-
-    document.querySelectorAll('.copy-btn').forEach(btn => {
-      btn.onclick = function() {
-        const idx = +this.dataset.i - 1;
-        if (!isNaN(idx) && PLANS[idx] && USER) {
-          copyPlan(PLANS[idx], USER, idx+1);
-          this.textContent = '✅ تم النسخ'; this.classList.add('done');
-          showToast('✅ تم نسخ الخطة');
-          setTimeout(() => { this.textContent = '📋 نسخ'; this.classList.remove('done'); }, 2200);
-        }
-      };
-    });
-
-    document.getElementById('pdfBtn').style.display    = 'inline-flex';
-    document.getElementById('shareBtn').style.display  = 'inline-flex';
-    document.getElementById('copyAllBtn').style.display= 'inline-flex';
-    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
+/* ── GENERATE ── */
+function generate(){
+  try{
+    clearErrors();let hasErr=false;
+    const gEl=document.getElementById('genderSelect'),g=gEl.value;
+    if(!g){markErr(gEl);hasErr=true;}
+    const bDE=document.getElementById('birthDay'),bME=document.getElementById('birthMonth'),bYE=document.getElementById('birthYear');
+    const bD=+bDE.value,bM=bME.value,bY=bYE.value;
+    if(!bD||!bM||!bY){if(!bY)markErr(bYE);if(!bM)markErr(bME);if(!bD)markErr(bDE);hasErr=true;}
+    if(hasErr){showAlert('❌ يرجى إدخال تاريخ الميلاد والجنس','e');return;}
+    const birth=new Date(+bY,+bM-1,bD);
+    if(isNaN(birth.getTime())||birth>new Date()){markErr(bDE);markErr(bME);markErr(bYE);showAlert('❌ تاريخ الميلاد غير صحيح','e');return;}
+    const nm=document.getElementById('nameInput').value.trim()||'مشترك';
+    const cv=document.getElementById('currentCategory').value,useUC=cv!=='',uc=useUC?+cv:1;
+    const fcY=document.getElementById('fixedCatYes').checked,fcV=document.getElementById('fixedCatSelect').value;
+    if(fcY&&!fcV){showAlert('⚠️ يرجى اختيار الفئة المستهدفة','w');return;}
+    if(fcY&&fcV&&useUC&&+fcV<uc){showAlert(`❌ الفئة المستهدفة (${fcV}) لا يمكن أن تكون أقل من الفئة الحالية (${uc})`,'e');return;}
+    TARGET_CAT_FOR_LAST5=(fcY&&fcV)?+fcV:null;
+    const jD=+document.getElementById('joinDay').value,jM=document.getElementById('joinMonth').value,jY=document.getElementById('joinYear').value;
+    let jd=null,ja=null;
+    if(jD&&jM&&jY){const j=new Date(+jY,+jM-1,jD);if(!isNaN(j.getTime())&&j<=new Date()){jd=j;ja=ageDiff(birth,j);}}
+    let pY=+document.getElementById('priorYears').value||0,pM=+document.getElementById('priorMonths').value||0;
+    if(pM>=12){pY+=Math.floor(pM/12);pM%=12;}const prior=pY*12+pM;
+    const ageNow=ageDiff(birth,new Date());
+    let sa,sm;
+    if(ja){sa=ja.years;sm=ja.months;}
+    else if(prior>0){const aNM=ageNow.years*12+ageNow.months,saM=Math.max(0,aNM-prior);sa=Math.floor(saM/12);sm=saM%12;}
+    else{sa=ageNow.years;sm=ageNow.months;}
+    sa=Math.min(Math.max(sa,15),100);
+    const svcJ=jd?monthsBetween(jd,new Date()):0,ts=svcJ+prior;
+    if(ageNow.years>=50&&!jd&&prior===0){showAlert('⚠️ العمر 50 أو أكثر يتطلب تاريخ انتساب أو خدمة سابقة','w');return;}
+    const jat=ja?`${ja.years} سنة و${ja.months} أشهر و${ja.days} أيام`:'لم يدخل';
+    USER={gender:g,nm,ay:ageNow.years,am:ageNow.months,ad:ageNow.days,jat,py:pY,pm:pM,ts,sa,sm,saDisplay:jd?null:(prior>0?`${sa} سنة و${sm} شهر (محسوب)`:null)};
+    const raw=[];
+    const p1=planA(prior,birth,sa,useUC,uc,g,jd);
+    if(p1.purchaseMonths>0)raw.push({...p1,desc:'أقرب عمر تقاعدي مع شراء'});
+    raw.push({...planB(prior,birth,sa,useUC,uc,g,jd),desc:'أقرب عمر تقاعدي بدون شراء'});
+    const p4age=g==='male'?63:58;
+    if(ageNow.years<p4age){const pD=planFixed(prior,birth,sa,useUC,uc,g,p4age,jd);raw.push({...pD,desc:`تقاعد عند إكمال ${p4age} سنة`});}
+    const pC=planC(prior,birth,sa,useUC,uc,jd);
+    if(!raw.some(p=>p.targetAge===pC.targetAge&&p.purchaseMonths===pC.purchaseMonths))raw.push({...pC,desc:'إكمال خدمة 32 سنة (أعلى راتب)'});
+    const seen=new Set(),uniq=[];for(const p of raw){const k=`${p.targetAge}-${p.purchaseMonths}`;if(!seen.has(k)){seen.add(k);uniq.push(p);}}
+    uniq.sort((a,b)=>a.targetAge-b.targetAge);
+    PLANS=uniq.map((p,i)=>({...p,title:`الخطة ${i+1}`}));
+    const ageObj={years:ageNow.years,months:ageNow.months,days:ageNow.days};
+    let html=buildSummaryHTML(nm,g,ageObj,ts,prior);
+    PLANS.forEach((p,i)=>html+=buildPlanCard(p,i,nm,g,ageObj,prior,ts,TARGET_CAT_FOR_LAST5));
+    document.getElementById('results').innerHTML=html;
+    attachCopyBtns();
+    ['pdfBtn','shareBtn','copyAllBtn'].forEach(id=>document.getElementById(id).style.display='inline-flex');
+    document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
     buildNavBar();
-
-  } catch(e) { showAlert('خطأ في الحساب: ' + e.message, 'e'); console.error(e); }
+  }catch(e){showAlert('خطأ في الحساب: '+e.message,'e');console.error(e);}
 }
 
-/* ─────────────────────────────────────────────────────
-   PLAN NAVIGATION BAR
-───────────────────────────────────────────────────── */
-function buildNavBar() {
-  if (!PLANS.length) return;
-  const nav  = document.getElementById('planNav');
-  const wrap = document.getElementById('planNavBtns');
-  if (!nav || !wrap) return;
-  wrap.innerHTML = PLANS.map((p,i) => {
-    const col = COLORS[i] || '#2a5298';
-    return `<button class="pnav-btn" data-plan="${i+1}"
-      style="border-color:${col}44"
-      onclick="scrollToPlan(${i+1})">
-      ${p.title}
-      <small>${p.targetAge} سنة · ${N(p.pension)} د.ع</small>
-    </button>`;
-  }).join('');
-  nav.style.display = 'block';
-  document.body.classList.add('has-nav');
-  setActiveNav(1);
-  if (window._navObserver) window._navObserver.disconnect();
-  window._navObserver = new IntersectionObserver(entries => {
-    let best = null, bestR = 0;
-    entries.forEach(e => {
-      if (e.isIntersecting && e.intersectionRatio > bestR) {
-        bestR = e.intersectionRatio; best = e.target.id;
-      }
-    });
-    if (best) { const n = parseInt(best.split('-').pop()); setActiveNav(n); }
-  }, { threshold:[0.1,0.3,0.5] });
-  PLANS.forEach((_,i) => {
-    const el = document.getElementById(`plan-card-${i+1}`);
-    if (el) window._navObserver.observe(el);
-  });
-}
-
-window.scrollToPlan = function(n) {
-  const el = document.getElementById(`plan-card-${n}`);
-  if (!el) return;
-  const headerH = document.querySelector('header')?.offsetHeight || 0;
-  const y = el.getBoundingClientRect().top + window.pageYOffset - headerH - 12;
-  window.scrollTo({ top:y, behavior:'smooth' });
-  setActiveNav(n);
-};
-
-function setActiveNav(n) {
-  document.querySelectorAll('.pnav-btn').forEach(b =>
-    b.classList.toggle('active', +b.dataset.plan === n));
-}
-window.setActiveNav = setActiveNav;
-
-/* ─────────────────────────────────────────────────────
-   ALERTS & TOAST
-───────────────────────────────────────────────────── */
-function showAlert(msg, t) {
-  document.getElementById('results').innerHTML =
-    `<div class="alert al-${t==='e'?'e':'w'}">${msg}</div>`;
-}
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2600);
-}
-
-/* ─────────────────────────────────────────────────────
-   DROPDOWNS
-───────────────────────────────────────────────────── */
-function populate() {
-  const cy = new Date().getFullYear();
-  let yearBirth = '<option value="">السنة</option>';
-  for (let y = cy; y >= 1950; y--) yearBirth += `<option value="${y}">${y}</option>`;
-  let yearJoin  = '<option value="">السنة</option>';
-  for (let y = cy; y >= 1970; y--) yearJoin  += `<option value="${y}">${y}</option>`;
-  document.getElementById('birthYear').innerHTML = yearBirth;
-  document.getElementById('joinYear').innerHTML  = yearJoin;
-
-  const monthBase = '<option value="">الشهر</option>' +
-    [1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}">${m}</option>`).join('');
-  document.getElementById('birthMonth').innerHTML = monthBase;
-  document.getElementById('joinMonth').innerHTML  = monthBase;
-  document.getElementById('birthDay').innerHTML = '<option value="">اليوم</option>';
-  document.getElementById('joinDay').innerHTML  = '<option value="">اليوم</option>';
-
-  let catHTML = '<option value="">— تلقائي —</option>';
-  for (let i = 1; i <= 15; i++)
-    catHTML += `<option value="${i}">فئة ${i}  ←  ${SAL[i].toLocaleString()} د.ع</option>`;
-  document.getElementById('currentCategory').innerHTML = catHTML;
-}
-
-function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); }
-
-window.onYearChange = function(prefix) {
-  const yearEl  = document.getElementById(prefix + 'Year');
-  const monthEl = document.getElementById(prefix + 'Month');
-  const dayEl   = document.getElementById(prefix + 'Day');
-  const y = +yearEl.value;
-  if (!y) {
-    monthEl.disabled = true; monthEl.value = '';
-    dayEl.disabled   = true; dayEl.value   = ''; return;
-  }
-  monthEl.disabled = false;
-  dayEl.disabled = true; dayEl.value = '';
-  dayEl.innerHTML = '<option value="">اليوم</option>';
-};
-
-window.onMonthChange = function(prefix) {
-  const yearEl  = document.getElementById(prefix + 'Year');
-  const monthEl = document.getElementById(prefix + 'Month');
-  const dayEl   = document.getElementById(prefix + 'Day');
-  const y = +yearEl.value, m = +monthEl.value;
-  if (!m) {
-    dayEl.disabled = true; dayEl.value = '';
-    dayEl.innerHTML = '<option value="">اليوم</option>'; return;
-  }
-  const maxDay = daysInMonth(y || 2000, m);
-  let html = '<option value="">اليوم</option>';
-  for (let d = 1; d <= maxDay; d++) html += `<option value="${d}">${d}</option>`;
-  dayEl.innerHTML = html;
-  dayEl.disabled  = false;
-  if (+dayEl.value > maxDay) dayEl.value = '';
-};
-
-function reset() {
-  document.getElementById('nameInput').value    = '';
-  document.getElementById('genderSelect').value = '';
-  ['birthYear','birthMonth','birthDay','joinYear','joinMonth','joinDay'].forEach(id => {
-    const el = document.getElementById(id);
-    el.value = '';
-    if (id !== 'birthYear' && id !== 'joinYear') el.disabled = true;
-    if (id === 'birthDay' || id === 'joinDay') el.innerHTML = '<option value="">اليوم</option>';
-  });
-  document.getElementById('priorYears').value  = '';
-  document.getElementById('priorMonths').value = '';
-  document.getElementById('fixedCatNo').checked  = true;
-  document.getElementById('fixedCatYes').checked = false;
-  document.getElementById('fixedCatSelectWrap').style.display = 'none';
-  document.getElementById('fixedCatSelect').value = '';
-  FIXED_CAT_FOR_AVG = null; TARGET_CAT_FOR_LAST5 = null;
-  document.getElementById('results').innerHTML = '';
-  ['pdfBtn','shareBtn','copyAllBtn'].forEach(id =>
-    document.getElementById(id).style.display = 'none');
-  const nav = document.getElementById('planNav');
-  if (nav) nav.style.display = 'none';
-  document.body.classList.remove('has-nav');
-  PLANS = []; USER = null;
-  populate();
-}
-
-/* ─────────────────────────────────────────────────────
-   COPY ALL MODAL
-───────────────────────────────────────────────────── */
-function openCopyAllModal() {
-  if (!PLANS.length) return;
-  _modalMode = 'copy';
-  _selectedPlans = new Set(PLANS.map((_,i) => i));
-  document.getElementById('modalTitle').textContent    = '📋 نسخ الخطط';
-  document.getElementById('modalSubtitle').textContent = 'اختر الخطط التي تريد نسخها دفعة واحدة';
-  document.getElementById('modalConfirmBtn').textContent= '📋 نسخ المحدد';
-  document.getElementById('shareLinkContainer').style.display = 'none';
-  renderModalPlans();
-  document.getElementById('planSelectorModal').style.display = 'flex';
-}
-
-function copySelectedPlans(chosen) {
-  if (!chosen.length || !USER) return;
-  let text = '';
-  chosen.forEach((plan, i) => {
-    text += copyPlanText(plan, USER, PLANS.indexOf(plan) + 1);
-    if (i < chosen.length - 1) text += '\n' + '─'.repeat(40) + '\n';
-  });
-  const fb = () => {
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); } catch(_) {}
-    document.body.removeChild(ta);
-  };
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(() => {}).catch(fb);
-  else fb();
-  showToast(`✅ تم نسخ ${chosen.length} ${chosen.length === 1 ? 'خطة' : 'خطط'}`);
-}
-
-/* ─────────────────────────────────────────────────────
-   PLAN SELECTOR MODAL
-───────────────────────────────────────────────────── */
-let _modalMode = 'pdf';
-let _selectedPlans = new Set();
-
-function openPlanModal(mode) {
-  if (!PLANS.length) return;
-  _modalMode = mode;
-  _selectedPlans = new Set(PLANS.map((_,i) => i));
-  const shareBox = document.getElementById('shareLinkContainer');
-  if (mode === 'pdf') {
-    document.getElementById('modalTitle').textContent    = '📄 اختر الخطط للتصدير';
-    document.getElementById('modalSubtitle').textContent = 'اختر الخطط التي تريد تضمينها في ملف PDF';
-    document.getElementById('modalConfirmBtn').textContent= '📄 تصدير PDF';
-    shareBox.style.display = 'none';
-  } else {
-    document.getElementById('modalTitle').textContent    = '🔗 مشاركة الجداول';
-    document.getElementById('modalSubtitle').textContent = 'اختر الخطط ثم انسخ الرابط لمشاركته';
-    document.getElementById('modalConfirmBtn').textContent= '🔗 إنشاء رابط';
-    shareBox.style.display = 'none';
-  }
-  renderModalPlans();
-  document.getElementById('planSelectorModal').style.display = 'flex';
-}
-
-function renderModalPlans() {
-  const list = document.getElementById('modalPlansList');
-  list.innerHTML = PLANS.map((p,i) => {
-    const col = COLORS[i] || '#2a5298';
-    const sel = _selectedPlans.has(i);
-    return `<div class="modal-plan-row ${sel?'selected':''}" data-idx="${i}" onclick="toggleModalPlan(${i})">
-      <div class="modal-plan-chk">${sel?'✓':''}</div>
-      <div class="modal-plan-info">
-        <div class="modal-plan-name" style="color:${col}">${p.title}</div>
-        <div class="modal-plan-meta">${p.desc} · عمر ${p.targetAge} سنة · ${FM(p.totalServiceMonths)} خدمة</div>
-      </div>
-      <div class="modal-plan-pension">${N(p.pension)} د.ع</div>
-    </div>`;
-  }).join('');
-}
-
-window.toggleModalPlan = function(i) {
-  if (_selectedPlans.has(i)) _selectedPlans.delete(i);
-  else                        _selectedPlans.add(i);
-  renderModalPlans();
-};
-
-function modalSelectAll() {
-  if (_selectedPlans.size === PLANS.length) _selectedPlans.clear();
-  else _selectedPlans = new Set(PLANS.map((_,i) => i));
-  renderModalPlans();
-}
-
-function closeModal() {
-  document.getElementById('planSelectorModal').style.display = 'none';
-  document.getElementById('shareLinkContainer').style.display = 'none';
-}
-
-function modalConfirm() {
-  if (_selectedPlans.size === 0) { showToast('⚠️ يرجى اختيار خطة واحدة على الأقل'); return; }
-  const chosen = [..._selectedPlans].sort((a,b)=>a-b).map(i => PLANS[i]);
-  if      (_modalMode === 'pdf')   { closeModal(); exportPDFPlans(chosen); }
-  else if (_modalMode === 'copy')  { closeModal(); copySelectedPlans(chosen); }
-  else                              { buildShareLink(chosen); }
-}
-
-/* ─────────────────────────────────────────────────────
-   SHARE LINK
-───────────────────────────────────────────────────── */
-function buildShareLink(chosenPlans) {
-  if (!USER) return;
-  const payload = {
-    v: 3,
-    u: [USER.nm, USER.gender==='male'?1:0, USER.ay, USER.am, USER.ts, USER.py, USER.pm, USER.sa],
-    p: chosenPlans.map(p => [
-      p.targetAge, p.totalServiceMonths, p.purchaseMonths,
-      Math.round(p.pension/1000), Math.round(p.avg/1000), Math.round(p.purchaseCost/1000),
-      p.retireDate.getFullYear(),
-      p.yearsPlan.length > 0 ? p.yearsPlan[0].cat : 1
-    ])
-  };
-  const json    = JSON.stringify(payload);
-  const encoded = btoa(unescape(encodeURIComponent(json)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-
-  // بناء رابط viewer.html
-  const baseUrl = window.location.href.split('/').slice(0,-1).join('/') + '/viewer.html';
-  const url     = baseUrl + '#s=' + encoded;
-
-  const linkBox   = document.getElementById('shareLinkBox');
-  const copyBtn   = document.getElementById('shareLinkCopyBtn');
-  const container = document.getElementById('shareLinkContainer');
-  linkBox.textContent = url;
-  container.style.display = 'block';
-
-  copyBtn.onclick = function() {
-    const doCopy = () => {
-      const ta = document.createElement('textarea');
-      ta.value = url; document.body.appendChild(ta);
-      ta.select(); document.execCommand('copy');
-      document.body.removeChild(ta);
+function attachCopyBtns(){
+  document.querySelectorAll('.copy-btn').forEach(btn=>{
+    btn.onclick=function(){
+      const idx=+this.dataset.i-1;
+      if(!isNaN(idx)&&PLANS[idx]&&USER){copyPlan(PLANS[idx],USER,idx+1);this.textContent='✅ تم النسخ';this.classList.add('done');showToast('✅ تم نسخ الخطة');setTimeout(()=>{this.textContent='📋 نسخ';this.classList.remove('done');},2200);}
     };
+  });
+}
+
+/* ── NAV BAR ── */
+function buildNavBar(){
+  if(!PLANS.length)return;
+  const nav=document.getElementById('planNav'),wrap=document.getElementById('planNavBtns');if(!nav||!wrap)return;
+  wrap.innerHTML=PLANS.map((p,i)=>{const col=COLORS[i]||'#2a5298';return`<button class="pnav-btn" data-plan="${i+1}" style="border-color:${col}44" onclick="scrollToPlan(${i+1})">${p.title}<small>${p.targetAge} سنة · ${N(p.pension)} د.ع</small></button>`;}).join('');
+  nav.style.display='block';document.body.classList.add('has-nav');setActiveNav(1);
+  if(window._navObs)window._navObs.disconnect();
+  window._navObs=new IntersectionObserver(entries=>{let best=null,bestR=0;entries.forEach(e=>{if(e.isIntersecting&&e.intersectionRatio>bestR){bestR=e.intersectionRatio;best=e.target.id;}});if(best)setActiveNav(parseInt(best.split('-').pop()));},{threshold:[0.1,0.3,0.5]});
+  PLANS.forEach((_,i)=>{const el=document.getElementById(`plan-card-${i+1}`);if(el)window._navObs.observe(el);});
+}
+window.scrollToPlan=function(n){const el=document.getElementById(`plan-card-${n}`);if(!el)return;const hh=document.querySelector('header')?.offsetHeight||0;window.scrollTo({top:el.getBoundingClientRect().top+window.pageYOffset-hh-12,behavior:'smooth'});setActiveNav(n);};
+function setActiveNav(n){document.querySelectorAll('.pnav-btn').forEach(b=>b.classList.toggle('active',+b.dataset.plan===n));}
+window.setActiveNav=setActiveNav;
+
+/* ── MODAL ── */
+let _mode='pdf',_sel=new Set();
+function openPlanModal(mode){
+  if(!PLANS.length)return;_mode=mode;_sel=new Set(PLANS.map((_,i)=>i));
+  const shareBox=document.getElementById('shareLinkContainer');
+  if(mode==='pdf'){document.getElementById('modalTitle').textContent='📄 اختر الخطط للتصدير';document.getElementById('modalSubtitle').textContent='اختر الخطط التي تريد تضمينها في ملف PDF';document.getElementById('modalConfirmBtn').textContent='📄 تصدير PDF';shareBox.style.display='none';}
+  else{document.getElementById('modalTitle').textContent='🔗 مشاركة الجداول';document.getElementById('modalSubtitle').textContent='اختر الخطط ثم انسخ الرابط لمشاركته';document.getElementById('modalConfirmBtn').textContent='🔗 إنشاء رابط';shareBox.style.display='none';}
+  renderModal();document.getElementById('planSelectorModal').style.display='flex';
+}
+function renderModal(){
+  document.getElementById('modalPlansList').innerHTML=PLANS.map((p,i)=>{const col=COLORS[i]||'#2a5298',sel=_sel.has(i);return`<div class="modal-plan-row ${sel?'selected':''}" onclick="toggleMP(${i})"><div class="modal-plan-chk">${sel?'✓':''}</div><div class="modal-plan-info"><div class="modal-plan-name" style="color:${col}">${p.title}</div><div class="modal-plan-meta">${p.desc} · عمر ${p.targetAge} سنة</div></div><div class="modal-plan-pension">${N(p.pension)} د.ع</div></div>`;}).join('');
+}
+window.toggleMP=function(i){if(_sel.has(i))_sel.delete(i);else _sel.add(i);renderModal();};
+function modalSelectAll(){if(_sel.size===PLANS.length)_sel.clear();else _sel=new Set(PLANS.map((_,i)=>i));renderModal();}
+function closeModal(){document.getElementById('planSelectorModal').style.display='none';document.getElementById('shareLinkContainer').style.display='none';}
+function modalConfirm(){
+  if(_sel.size===0){showToast('⚠️ يرجى اختيار خطة واحدة على الأقل');return;}
+  const chosen=[..._sel].sort((a,b)=>a-b).map(i=>PLANS[i]);
+  if(_mode==='pdf'){closeModal();exportPDFPlans(chosen,USER,QR_B64,QR_LINK);}
+  else if(_mode==='copy'){closeModal();copyAll(chosen);}
+  else buildShareLink(chosen);
+}
+function copyAll(chosen){
+  if(!chosen.length||!USER)return;
+  let text='';chosen.forEach((plan,i)=>{text+=copyPlanText(plan,USER,PLANS.indexOf(plan)+1);if(i<chosen.length-1)text+='\n'+'─'.repeat(40)+'\n';});
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(_){}document.body.removeChild(ta);};
+  if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>{}).catch(fb);else fb();
+  showToast(`✅ تم نسخ ${chosen.length} خطة`);
+}
+function openCopyAllModal(){if(!PLANS.length)return;_mode='copy';_sel=new Set(PLANS.map((_,i)=>i));document.getElementById('modalTitle').textContent='📋 نسخ الخطط';document.getElementById('modalSubtitle').textContent='اختر الخطط التي تريد نسخها';document.getElementById('modalConfirmBtn').textContent='📋 نسخ المحدد';document.getElementById('shareLinkContainer').style.display='none';renderModal();document.getElementById('planSelectorModal').style.display='flex';}
+
+/* ── SHARE LINK ── */
+function buildShareLink(chosen){
+  if(!USER)return;
+  const payload={v:3,u:[USER.nm,USER.gender==='male'?1:0,USER.ay,USER.am,USER.ts,USER.py,USER.pm,USER.sa],p:chosen.map(p=>[p.targetAge,p.totalServiceMonths,p.purchaseMonths,Math.round(p.pension/1000),Math.round(p.avg/1000),Math.round(p.purchaseCost/1000),p.retireDate.getFullYear(),p.yearsPlan.length>0?p.yearsPlan[0].cat:1])};
+  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const baseUrl=window.location.href.split('/').slice(0,-1).join('/')+'/viewer.html';
+  const url=baseUrl+'#s='+encoded;
+  const linkBox=document.getElementById('shareLinkBox'),copyBtn=document.getElementById('shareLinkCopyBtn'),container=document.getElementById('shareLinkContainer');
+  linkBox.textContent=url;container.style.display='block';
+  copyBtn.onclick=function(){
+    const doCopy=()=>{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);};
     navigator.clipboard?.writeText(url).then(()=>{}).catch(doCopy);
-    this.textContent = '✅ تم نسخ الرابط!';
-    this.classList.add('copied');
-    setTimeout(() => { this.textContent = '📋 نسخ الرابط'; this.classList.remove('copied'); }, 2500);
-    showToast('✅ تم نسخ الرابط');
+    this.textContent='✅ تم نسخ الرابط!';this.classList.add('copied');showToast('✅ تم نسخ الرابط');
+    setTimeout(()=>{this.textContent='📋 نسخ الرابط';this.classList.remove('copied');},2500);
   };
-
-  const waBtn = document.getElementById('shareWABtn');
-  if (waBtn) waBtn.onclick = function() {
-    const msg = `📋 جداول التقاعد الاختياري - ${USER.nm||'مشترك'}\n\nافتح الرابط لعرض أو تحميل الجداول:\n${url}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-  };
+  const waBtn=document.getElementById('shareWABtn');
+  if(waBtn)waBtn.onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(`📋 جداول التقاعد الاختياري - ${USER.nm||'مشترك'}\n\nافتح الرابط لعرض أو تحميل الجداول:\n${url}`),'_blank');};
 }
 
-/* ─────────────────────────────────────────────────────
-   LOAD SHARED VIEW (from hash in same page — fallback)
-───────────────────────────────────────────────────── */
-function loadSharedView() {
-  const hash  = window.location.hash;
-  const isV3  = hash.startsWith('#s=');
-  const isOld = hash.startsWith('#share=');
-  if (!isV3 && !isOld) return false;
-  try {
-    const rawEnc  = isV3 ? hash.slice(3) : hash.slice(7);
-    const encoded = rawEnc.replace(/-/g,'+').replace(/_/g,'/')
-                          + '=='.slice(0,(4-rawEnc.length%4)%4);
-    const payload = JSON.parse(decodeURIComponent(escape(atob(encoded))));
-    if (!payload) return false;
-
-    let u_nm,u_g,u_ay,u_am,u_ts,u_py,u_pm,u_sa, plans;
-    if (payload.v === 3) {
-      const u=payload.u;
-      u_nm=u[0]; u_g=u[1]===1?'male':'female';
-      u_ay=u[2]; u_am=u[3]; u_ts=u[4]; u_py=u[5]; u_pm=u[6]; u_sa=u[7]||0;
-      const descs=['أقرب عمر تقاعدي مع شراء','أقرب عمر تقاعدي بدون شراء',
-                   'تقاعد عند إكمال '+(u_g==='male'?'63':'58')+' سنة','إكمال خدمة 32 سنة (أعلى راتب)'];
-      plans=payload.p.map((p,i)=>({
-        title:`الخطة ${i+1}`, desc:descs[i]||`خطة ${i+1}`,
-        targetAge:p[0], totalServiceMonths:p[1], purchaseMonths:p[2],
-        pension:p[3]*1000, avg:p[4]*1000, purchaseCost:p[5]*1000,
-        retireDate:new Date(p[6],0,1), yearsPlan:buildCatPlan(u_sa,p[0],p[7])
-      }));
-    } else if (payload.v===2) {
-      const u=payload.u;
-      u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=u.sa||0;
-      plans=payload.plans.map(p=>({
-        title:p.ti,desc:p.de,targetAge:p.ag,totalServiceMonths:p.mo,
-        purchaseMonths:p.bu,pension:p.pe,avg:p.av,purchaseCost:p.co,
-        retireDate:new Date(p.rd),yearsPlan:buildCatPlan(u_sa,p.ag,p.sc)
-      }));
-    } else {
-      const u=payload.u;
-      u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=0;
-      plans=payload.plans.map(p=>({
-        title:p.title,desc:p.desc,targetAge:p.age,totalServiceMonths:p.mo,
-        purchaseMonths:p.buy,pension:p.pension,avg:p.avg,purchaseCost:p.cost,
-        retireDate:new Date(p.rd),
-        yearsPlan:p.yp?p.yp.map((cat,idx)=>({age:p.age-p.yp.length+1+idx,cat})):buildCatPlan(0,p.age,1)
-      }));
-    }
-    if (!plans?.length) return false;
-    PLANS = plans;
-    USER  = {nm:u_nm,gender:u_g,ay:u_ay,am:u_am,ts:u_ts,
-             py:u_py,pm:u_pm,sm:0,ad:0,jat:'مشارَك',sa:u_sa};
-
-    const formEl = document.querySelector('.card.no-print');
-    if (formEl) formEl.style.display = 'none';
-    ['calcBtn','printBtn','resetBtn','copyAllBtn','shareBtn'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.style.display = 'none';
-    });
-
-    const toolbar = document.querySelector('.toolbar');
-    if (toolbar) {
-      toolbar.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%">
-          <span style="font-size:.84rem;color:var(--navy);background:var(--navy-pale);
-                       padding:8px 13px;border-radius:8px;border-right:3px solid var(--navy-md)">
-            🔗 جدول مشارَك لـ <b>${u_nm||'مشترك'}</b>
-            (${u_g==='male'?'ذكر':'أنثى'} · ${u_ay} سنة)
-          </span>
-          <button class="btn btn-pdf" id="sharedPdfBtn">📄 فتح PDF</button>
-          <button class="btn btn-generate" id="sharedDlBtn">📥 تحميل PDF</button>
-        </div>`;
-      document.getElementById('sharedPdfBtn').onclick = () => exportPDFPlans(plans);
-      document.getElementById('sharedDlBtn').onclick  = () => {
-        exportPDFPlans(plans);
-        showToast('✅ استخدم "حفظ كـ PDF" في حوار الطباعة');
-      };
-    }
-
-    const ageNow = {years:u_ay, months:u_am, days:0};
-    let html = buildSummary(u_nm, u_g, ageNow, 'مشارَك', u_ts, false);
-    plans.forEach((p,i) => html += buildCard(p, i, u_nm, u_g, ageNow, (u_py||0)*12+(u_pm||0)));
-    document.getElementById('results').innerHTML = html;
-
-    document.querySelectorAll('.copy-btn').forEach(btn => {
-      btn.onclick = function() {
-        const idx = +this.dataset.i - 1;
-        if (!isNaN(idx) && PLANS[idx] && USER) {
-          copyPlan(PLANS[idx], USER, idx+1);
-          this.textContent = '✅ تم النسخ'; this.classList.add('done');
-          showToast('✅ تم نسخ الخطة');
-          setTimeout(() => { this.textContent = '📋 نسخ'; this.classList.remove('done'); }, 2200);
-        }
-      };
-    });
-
-    buildNavBar();
-    setTimeout(() => exportPDFPlans(plans), 900);
+/* ── LOAD SHARED VIEW (fallback if opened in index.html) ── */
+function loadSharedView(){
+  const payload=decodeLinkPayload();if(!payload)return false;
+  try{
+    const result=parseSharedPayload(payload);if(!result||!result.plans.length)return false;
+    PLANS=result.plans;USER=result.user;
+    const formEl=document.querySelector('.card.no-print');if(formEl)formEl.style.display='none';
+    ['calcBtn','printBtn','resetBtn','copyAllBtn','shareBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+    const toolbar=document.querySelector('.toolbar');
+    if(toolbar){toolbar.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%"><span style="font-size:.82rem;color:var(--c1);background:#eef2fb;padding:8px 13px;border-radius:8px;border-right:3px solid var(--c3)">🔗 جدول مشارَك لـ <b>${USER.nm||'مشترك'}</b> (${USER.gender==='male'?'ذكر':'أنثى'} · ${USER.ay} سنة)</span><button class="btn btn-pdf" id="sharedPdfBtn">📄 فتح PDF</button><button class="btn btn-generate" id="sharedDlBtn">📥 تحميل PDF</button></div>`;
+    document.getElementById('sharedPdfBtn').onclick=()=>exportPDFPlans(PLANS,USER,QR_B64,QR_LINK);
+    document.getElementById('sharedDlBtn').onclick=()=>{exportPDFPlans(PLANS,USER,QR_B64,QR_LINK);showToast('✅ استخدم "حفظ كـ PDF" في حوار الطباعة');};}
+    const ageObj={years:USER.ay,months:USER.am,days:0};
+    let html=buildSummaryHTML(USER.nm,USER.gender,ageObj,USER.ts,(USER.py||0)*12+(USER.pm||0));
+    PLANS.forEach((p,i)=>html+=buildPlanCard(p,i,USER.nm,USER.gender,ageObj,(USER.py||0)*12+(USER.pm||0),USER.ts,null));
+    document.getElementById('results').innerHTML=html;
+    attachCopyBtns();buildNavBar();
+    setTimeout(()=>exportPDFPlans(PLANS,USER,QR_B64,QR_LINK),900);
     return true;
-  } catch(e) { console.warn('Share link parse error:', e); return false; }
+  }catch(e){console.warn('shared parse error',e);return false;}
 }
 
-/* ─────────────────────────────────────────────────────
-   INIT
-───────────────────────────────────────────────────── */
-window.onload = function() {
+/* ── INIT ── */
+window.onload=function(){
   populate();
-
-  document.querySelectorAll('input[name="fixedCatOpt"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-      document.getElementById('fixedCatSelectWrap').style.display =
-        this.value === 'yes' ? 'flex' : 'none';
-    });
-  });
-
-  if (!loadSharedView()) {
-    document.getElementById('calcBtn').onclick = generate;
-  }
-
-  document.getElementById('pdfBtn').onclick     = () => openPlanModal('pdf');
-  document.getElementById('shareBtn').onclick   = () => openPlanModal('share');
-  document.getElementById('copyAllBtn').onclick  = openCopyAllModal;
-  document.getElementById('printBtn').onclick   = () => window.print();
-  document.getElementById('resetBtn').onclick   = reset;
-
-  document.getElementById('modalCloseBtn').onclick   = closeModal;
-  document.getElementById('modalCancelBtn').onclick  = closeModal;
-  document.getElementById('modalConfirmBtn').onclick = modalConfirm;
-  document.getElementById('modalSelectAll').onclick  = modalSelectAll;
-
-  document.getElementById('planSelectorModal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-  });
+  document.querySelectorAll('input[name="fixedCatOpt"]').forEach(r=>{r.addEventListener('change',function(){document.getElementById('fixedCatSelectWrap').style.display=this.value==='yes'?'flex':'none';});});
+  if(!loadSharedView()){document.getElementById('calcBtn').onclick=generate;}
+  document.getElementById('pdfBtn').onclick=()=>openPlanModal('pdf');
+  document.getElementById('shareBtn').onclick=()=>openPlanModal('share');
+  document.getElementById('copyAllBtn').onclick=openCopyAllModal;
+  document.getElementById('printBtn').onclick=()=>window.print();
+  document.getElementById('resetBtn').onclick=reset;
+  document.getElementById('modalCloseBtn').onclick=closeModal;
+  document.getElementById('modalCancelBtn').onclick=closeModal;
+  document.getElementById('modalConfirmBtn').onclick=modalConfirm;
+  document.getElementById('modalSelectAll').onclick=modalSelectAll;
+  document.getElementById('planSelectorModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 };
 
 })();

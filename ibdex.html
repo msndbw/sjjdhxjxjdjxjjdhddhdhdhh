@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a1628">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>جداول التقاعد الاختياري</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <div class="hdr-logo">🏛️</div>
+    <div class="hdr-text">
+      <h1>إنشاء جداول التقاعد الاختياري</h1>
+      <p>نظام احتساب الراتب التقاعدي وفق القانون</p>
+    </div>
+    <div class="hdr-badge no-print">النظام الرسمي</div>
+  </div>
+</header>
+
+<main>
+<div class="card no-print">
+  <div class="card-head">
+    <div class="card-head-icon">📋</div>
+    <h2>بيانات المشترك</h2>
+  </div>
+  <div class="card-body">
+    <div class="form-grid">
+
+      <div class="field">
+        <div class="field-lbl">👤 الاسم الكامل <span class="opt">اختياري</span></div>
+        <input class="ctrl" type="text" id="nameInput" placeholder="مثال: أحمد محمد علي">
+      </div>
+
+      <div class="field">
+        <div class="field-lbl">⚥ الجنس <span class="req">*</span></div>
+        <select class="ctrl" id="genderSelect">
+          <option value="">— اختر الجنس —</option>
+          <option value="male">ذكر</option>
+          <option value="female">أنثى</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <div class="field-lbl">🎂 تاريخ الميلاد <span class="req">*</span></div>
+        <div class="date-slots">
+          <div class="date-slot slot-year"><div class="slot-pill">السنة</div><select class="ctrl" id="birthYear" onchange="onYearChange('birth')"></select></div>
+          <div class="date-slot slot-month"><div class="slot-pill">الشهر</div><select class="ctrl" id="birthMonth" disabled onchange="onMonthChange('birth')"></select></div>
+          <div class="date-slot slot-day"><div class="slot-pill">اليوم</div><select class="ctrl" id="birthDay" disabled></select></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-lbl">📊 الفئة الحالية <span class="opt">اختياري</span></div>
+        <select class="ctrl" id="currentCategory"></select>
+        <div class="field-hint">إذا تُرك فارغاً تُحسب الفئة تلقائياً</div>
+      </div>
+
+      <div class="field" style="grid-column:1/-1">
+        <div class="field-lbl">🎯 الاستقرار على فئة محددة قبل التقاعد؟</div>
+        <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;align-items:center">
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.92rem;font-weight:600;color:var(--c3)">
+            <input type="radio" name="fixedCatOpt" id="fixedCatNo" value="no" checked style="accent-color:var(--c3);width:17px;height:17px;cursor:pointer"> لا
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.92rem;font-weight:600;color:var(--c3)">
+            <input type="radio" name="fixedCatOpt" id="fixedCatYes" value="yes" style="accent-color:var(--gold);width:17px;height:17px;cursor:pointer"> نعم
+          </label>
+          <div id="fixedCatSelectWrap" style="display:none;flex:1;min-width:180px">
+            <select class="ctrl" id="fixedCatSelect">
+              <option value="">— اختر الفئة المستهدفة —</option>
+              <option value="1">الفئة الأولى — 350,000 د.ع</option>
+              <option value="2">الفئة الثانية — 455,000 د.ع</option>
+              <option value="3">الفئة الثالثة — 560,000 د.ع</option>
+              <option value="4">الفئة الرابعة — 665,000 د.ع</option>
+              <option value="5">الفئة الخامسة — 770,000 د.ع</option>
+              <option value="6">الفئة السادسة — 875,000 د.ع</option>
+              <option value="7">الفئة السابعة — 980,000 د.ع</option>
+              <option value="8">الفئة الثامنة — 1,085,000 د.ع</option>
+              <option value="9">الفئة التاسعة — 1,190,000 د.ع</option>
+              <option value="10">الفئة العاشرة — 1,295,000 د.ع</option>
+              <option value="11">الفئة الحادية عشر — 1,400,000 د.ع</option>
+              <option value="12">الفئة الثانية عشر — 1,505,000 د.ع</option>
+              <option value="13">الفئة الثالثة عشر — 1,610,000 د.ع</option>
+              <option value="14">الفئة الرابعة عشر — 1,715,000 د.ع</option>
+              <option value="15">الفئة الخامسة عشر — 1,750,000 د.ع</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-hint">إذا اخترت نعم، ستُحسب آخر 5 سنوات قبل التقاعد جميعها بالفئة المختارة</div>
+      </div>
+
+      <div class="sub-group">
+        <div class="sub-title">📅 تاريخ الانتساب <span class="sub-opt">(اختياري — إذا تُرك فارغاً يبدأ الحساب من العمر الحالي)</span></div>
+        <div class="field" style="grid-column:1/-1">
+          <div class="date-slots">
+            <div class="date-slot slot-year"><div class="slot-pill">السنة</div><select class="ctrl" id="joinYear" onchange="onYearChange('join')"></select></div>
+            <div class="date-slot slot-month"><div class="slot-pill">الشهر</div><select class="ctrl" id="joinMonth" disabled onchange="onMonthChange('join')"></select></div>
+            <div class="date-slot slot-day"><div class="slot-pill">اليوم</div><select class="ctrl" id="joinDay" disabled></select></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-group">
+        <div class="sub-title">🗂️ الخدمة السابقة <span class="sub-opt">(اختياري — مطلوب إذا كان العمر ≥ 50 ولا يوجد تاريخ انتساب)</span></div>
+        <div class="field">
+          <div class="field-lbl">عدد السنوات</div>
+          <input class="ctrl" type="number" id="priorYears" min="0" max="40" placeholder="0">
+        </div>
+        <div class="field">
+          <div class="field-lbl">عدد الأشهر</div>
+          <input class="ctrl" type="number" id="priorMonths" min="0" max="11" placeholder="0">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="no-print">
+  <div class="toolbar">
+    <button class="btn btn-generate" id="calcBtn">⚙️ إنشاء الخطط التقاعدية</button>
+    <button class="btn btn-pdf" id="pdfBtn" style="display:none">📄 تصدير PDF</button>
+    <button class="btn btn-share" id="shareBtn" style="display:none">🔗 مشاركة كرابط</button>
+    <button class="btn btn-copyall" id="copyAllBtn" style="display:none">📋 نسخ الكل</button>
+    <button class="btn btn-print" id="printBtn">🖨️ طباعة</button>
+    <button class="btn btn-reset" id="resetBtn">🔄 تهيئة</button>
+  </div>
+</div>
+
+<div id="results"></div>
+</main>
+
+<div id="toast"></div>
+
+<div id="planNav" class="plan-nav no-print" style="display:none">
+  <div class="plan-nav-wrap">
+    <span class="pnav-label">🗂️ انتقل:</span>
+    <div class="plan-nav-inner" id="planNavBtns"></div>
+    <button class="pnav-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">⬆</button>
+  </div>
+</div>
+
+<div id="planSelectorModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">📄 اختر الخطط للتصدير</h3>
+      <button class="modal-close" id="modalCloseBtn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-subtitle" id="modalSubtitle">اختر الخطط التي تريد تضمينها</div>
+      <div class="modal-plans" id="modalPlansList"></div>
+      <div id="shareLinkContainer" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="share-copy-btn" id="shareLinkCopyBtn" style="flex:1;margin-bottom:0">📋 نسخ الرابط</button>
+          <button class="share-wa-btn" id="shareWABtn" title="مشاركة عبر واتساب">
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-.74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/></svg>
+          </button>
+        </div>
+        <div class="share-link-box" id="shareLinkBox"></div>
+        <div style="font-size:.67rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5">
+          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer" style="color:var(--gold3);font-weight:700">للمزيد من المعلومات اضغط هنا</a>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-select-all" id="modalSelectAll">تحديد الكل</button>
+      <button class="btn-modal-cancel" id="modalCancelBtn">إلغاء</button>
+      <button class="btn-modal-confirm" id="modalConfirmBtn">📄 تصدير</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

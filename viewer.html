@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="theme-color" content="#0a1628">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>عرض جدول التقاعد</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- HEADER -->
 <header>
   <div class="hdr">
     <div class="hdr-logo">🏛️</div>
@@ -25,40 +25,32 @@
 
 <main>
 
-  <!-- حالة التحميل -->
   <div id="loadingState">
     <div class="loader-ring"></div>
     <p>جاري تحميل الجدول...</p>
   </div>
 
-  <!-- حالة الخطأ -->
   <div id="errorState">
     <div class="error-icon">⚠️</div>
     <h2>تعذّر تحميل الجدول</h2>
-    <p id="errorMsg">الرابط غير صحيح أو منتهي الصلاحية.<br>يرجى التواصل مع من أرسل لك الرابط للحصول على رابط جديد.</p>
+    <p id="errorMsg">الرابط غير صحيح أو منتهي الصلاحية.<br>يرجى التواصل مع من أرسل لك الرابط.</p>
   </div>
 
-  <!-- شريط الإجراءات -->
   <div id="actionBar">
-    <div class="share-info-badge" id="infoLabel">🔗 جدول مشارَك</div>
+    <div class="share-info-badge" id="infoLabel">🔗 جاري التحميل...</div>
     <button class="btn btn-pdf" id="openPdfBtn">📄 فتح PDF</button>
-    <button class="btn btn-dl"  id="dlPdfBtn">📥 تحميل PDF</button>
+    <button class="btn btn-dl" id="dlPdfBtn">📥 تحميل PDF</button>
   </div>
 
-  <!-- منطقة العرض -->
   <div id="viewerContent"></div>
 
 </main>
 
 <div id="toast"></div>
 
-<!-- FOOTER -->
 <div class="viewer-footer">
-  جداول التقاعد الاختياري — نظام رسمي لاحتساب الراتب التقاعدي
-  <br>
-  <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer">
-    للمزيد من المعلومات والاستفسارات اضغط هنا
-  </a>
+  جداول التقاعد الاختياري — نظام رسمي لاحتساب الراتب التقاعدي<br>
+  <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
 </div>
 
 <script src="viewer.js"></script>
