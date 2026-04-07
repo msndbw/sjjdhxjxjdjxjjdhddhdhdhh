@@ -11,8 +11,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<!-- ══════ HEADER ══════ -->
 <header>
   <div class="hdr">
     <div class="hdr-logo">🏛️</div>
@@ -25,8 +23,6 @@
 </header>
 
 <main>
-
-<!-- ══════ FORM ══════ -->
 <div class="card no-print">
   <div class="card-head">
     <div class="card-head-icon">📋</div>
@@ -35,13 +31,11 @@
   <div class="card-body">
     <div class="form-grid">
 
-      <!-- الاسم -->
       <div class="field">
         <div class="field-lbl">👤 الاسم الكامل <span class="opt">اختياري</span></div>
         <input class="ctrl" type="text" id="nameInput" placeholder="مثال: أحمد محمد علي">
       </div>
 
-      <!-- الجنس -->
       <div class="field">
         <div class="field-lbl">⚥ الجنس <span class="req">*</span></div>
         <select class="ctrl" id="genderSelect">
@@ -51,47 +45,31 @@
         </select>
       </div>
 
-      <!-- تاريخ الميلاد -->
       <div class="field">
         <div class="field-lbl">🎂 تاريخ الميلاد <span class="req">*</span></div>
         <div class="date-slots">
-          <div class="date-slot slot-year">
-            <div class="slot-pill">السنة</div>
-            <select class="ctrl" id="birthYear" onchange="onYearChange('birth')"></select>
-          </div>
-          <div class="date-slot slot-month">
-            <div class="slot-pill">الشهر</div>
-            <select class="ctrl" id="birthMonth" disabled onchange="onMonthChange('birth')"></select>
-          </div>
-          <div class="date-slot slot-day">
-            <div class="slot-pill">اليوم</div>
-            <select class="ctrl" id="birthDay" disabled></select>
-          </div>
+          <div class="date-slot slot-year"><div class="slot-pill">السنة</div><select class="ctrl" id="birthYear" onchange="onYearChange('birth')"></select></div>
+          <div class="date-slot slot-month"><div class="slot-pill">الشهر</div><select class="ctrl" id="birthMonth" disabled onchange="onMonthChange('birth')"></select></div>
+          <div class="date-slot slot-day"><div class="slot-pill">اليوم</div><select class="ctrl" id="birthDay" disabled></select></div>
         </div>
       </div>
 
-      <!-- الفئة الحالية -->
       <div class="field">
         <div class="field-lbl">📊 الفئة الحالية <span class="opt">اختياري</span></div>
         <select class="ctrl" id="currentCategory"></select>
         <div class="field-hint">إذا تُرك فارغاً تُحسب الفئة تلقائياً</div>
       </div>
 
-      <!-- الاستقرار على فئة محددة -->
       <div class="field" style="grid-column:1/-1">
         <div class="field-lbl">🎯 الاستقرار على فئة محددة قبل التقاعد؟</div>
         <div style="display:flex;gap:14px;margin-top:4px;flex-wrap:wrap;align-items:center">
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.93rem;font-weight:600;color:var(--navy-md)">
-            <input type="radio" name="fixedCatOpt" id="fixedCatNo" value="no" checked
-              style="accent-color:var(--navy-md);width:17px;height:17px;cursor:pointer">
-            لا
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.92rem;font-weight:600;color:var(--c3)">
+            <input type="radio" name="fixedCatOpt" id="fixedCatNo" value="no" checked style="accent-color:var(--c3);width:17px;height:17px;cursor:pointer"> لا
           </label>
-          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.93rem;font-weight:600;color:var(--navy-md)">
-            <input type="radio" name="fixedCatOpt" id="fixedCatYes" value="yes"
-              style="accent-color:var(--gold);width:17px;height:17px;cursor:pointer">
-            نعم
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.92rem;font-weight:600;color:var(--c3)">
+            <input type="radio" name="fixedCatOpt" id="fixedCatYes" value="yes" style="accent-color:var(--gold);width:17px;height:17px;cursor:pointer"> نعم
           </label>
-          <div id="fixedCatSelectWrap" style="display:none;flex:1;min-width:180px;">
+          <div id="fixedCatSelectWrap" style="display:none;flex:1;min-width:180px">
             <select class="ctrl" id="fixedCatSelect">
               <option value="">— اختر الفئة المستهدفة —</option>
               <option value="1">الفئة الأولى — 350,000 د.ع</option>
@@ -112,39 +90,22 @@
             </select>
           </div>
         </div>
-        <div class="field-hint" id="fixedCatHint">إذا اخترت نعم، ستُحسب آخر 5 سنوات قبل التقاعد جميعها بالفئة المختارة</div>
+        <div class="field-hint">إذا اخترت نعم، ستُحسب آخر 5 سنوات قبل التقاعد جميعها بالفئة المختارة</div>
       </div>
 
-      <!-- تاريخ الانتساب -->
       <div class="sub-group">
-        <div class="sub-title">
-          📅 تاريخ الانتساب
-          <span class="sub-opt">(اختياري — إذا تُرك فارغاً يبدأ الحساب من العمر الحالي)</span>
-        </div>
+        <div class="sub-title">📅 تاريخ الانتساب <span class="sub-opt">(اختياري — إذا تُرك فارغاً يبدأ الحساب من العمر الحالي)</span></div>
         <div class="field" style="grid-column:1/-1">
           <div class="date-slots">
-            <div class="date-slot slot-year">
-              <div class="slot-pill">السنة</div>
-              <select class="ctrl" id="joinYear" onchange="onYearChange('join')"></select>
-            </div>
-            <div class="date-slot slot-month">
-              <div class="slot-pill">الشهر</div>
-              <select class="ctrl" id="joinMonth" disabled onchange="onMonthChange('join')"></select>
-            </div>
-            <div class="date-slot slot-day">
-              <div class="slot-pill">اليوم</div>
-              <select class="ctrl" id="joinDay" disabled></select>
-            </div>
+            <div class="date-slot slot-year"><div class="slot-pill">السنة</div><select class="ctrl" id="joinYear" onchange="onYearChange('join')"></select></div>
+            <div class="date-slot slot-month"><div class="slot-pill">الشهر</div><select class="ctrl" id="joinMonth" disabled onchange="onMonthChange('join')"></select></div>
+            <div class="date-slot slot-day"><div class="slot-pill">اليوم</div><select class="ctrl" id="joinDay" disabled></select></div>
           </div>
         </div>
       </div>
 
-      <!-- الخدمة السابقة -->
       <div class="sub-group">
-        <div class="sub-title">
-          🗂️ الخدمة السابقة
-          <span class="sub-opt">(اختياري — مطلوب إذا كان العمر ≥ 50 ولا يوجد تاريخ انتساب)</span>
-        </div>
+        <div class="sub-title">🗂️ الخدمة السابقة <span class="sub-opt">(اختياري — مطلوب إذا كان العمر ≥ 50 ولا يوجد تاريخ انتساب)</span></div>
         <div class="field">
           <div class="field-lbl">عدد السنوات</div>
           <input class="ctrl" type="number" id="priorYears" min="0" max="40" placeholder="0">
@@ -159,15 +120,14 @@
   </div>
 </div>
 
-<!-- ══════ TOOLBAR ══════ -->
 <div class="no-print">
   <div class="toolbar">
     <button class="btn btn-generate" id="calcBtn">⚙️ إنشاء الخطط التقاعدية</button>
-    <button class="btn btn-pdf"     id="pdfBtn"     style="display:none">📄 تصدير PDF</button>
-    <button class="btn btn-share"   id="shareBtn"   style="display:none">🔗 مشاركة كرابط</button>
+    <button class="btn btn-pdf" id="pdfBtn" style="display:none">📄 تصدير PDF</button>
+    <button class="btn btn-share" id="shareBtn" style="display:none">🔗 مشاركة كرابط</button>
     <button class="btn btn-copyall" id="copyAllBtn" style="display:none">📋 نسخ الكل</button>
-    <button class="btn btn-print"   id="printBtn">🖨️ طباعة</button>
-    <button class="btn btn-reset"   id="resetBtn">🔄 تهيئة</button>
+    <button class="btn btn-print" id="printBtn">🖨️ طباعة</button>
+    <button class="btn btn-reset" id="resetBtn">🔄 تهيئة</button>
   </div>
 </div>
 
@@ -176,16 +136,14 @@
 
 <div id="toast"></div>
 
-<!-- ══════ PLAN NAVIGATION BAR ══════ -->
 <div id="planNav" class="plan-nav no-print" style="display:none">
   <div class="plan-nav-wrap">
     <span class="pnav-label">🗂️ انتقل:</span>
     <div class="plan-nav-inner" id="planNavBtns"></div>
-    <button class="pnav-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="أعلى الصفحة">⬆</button>
+    <button class="pnav-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">⬆</button>
   </div>
 </div>
 
-<!-- ══════ PLAN SELECTOR MODAL ══════ -->
 <div id="planSelectorModal" class="modal-overlay" style="display:none">
   <div class="modal">
     <div class="modal-head">
@@ -193,21 +151,18 @@
       <button class="modal-close" id="modalCloseBtn">✕</button>
     </div>
     <div class="modal-body">
-      <div class="modal-subtitle" id="modalSubtitle">اختر الخطط التي تريد تضمينها في ملف PDF</div>
+      <div class="modal-subtitle" id="modalSubtitle">اختر الخطط التي تريد تضمينها</div>
       <div class="modal-plans" id="modalPlansList"></div>
       <div id="shareLinkContainer" style="display:none">
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <button class="share-copy-btn" id="shareLinkCopyBtn" style="flex:1;margin-bottom:0">📋 نسخ الرابط</button>
           <button class="share-wa-btn" id="shareWABtn" title="مشاركة عبر واتساب">
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor">
-              <path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-.74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/>
-            </svg>
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor"><path d="M16 2C8.28 2 2 8.28 2 16c0 2.44.65 4.73 1.78 6.72L2 30l7.47-1.76A13.93 13.93 0 0016 30c7.72 0 14-6.28 14-14S23.72 2 16 2zm7.16 19.34c-.3.84-1.76 1.6-2.42 1.7-.6.09-1.37.13-2.2-.14a20.1 20.1 0 01-2-.74c-3.5-1.5-5.8-5.06-5.97-5.3-.17-.22-1.38-1.84-1.38-3.5 0-1.67.87-2.49 1.18-2.83.3-.34.66-.43.88-.43l.63.01c.2 0 .47-.08.74.56.28.66.94 2.3 1.02 2.47.08.17.14.37.03.6-.11.22-.17.36-.33.55-.17.2-.35.44-.5.59-.17.17-.34.35-.15.68.2.34.87 1.43 1.87 2.32 1.28 1.14 2.36 1.5 2.7 1.66.33.17.53.14.72-.08.2-.22.84-.98 1.07-1.32.22-.33.44-.28.74-.17.3.11 1.9.9 2.23 1.06.33.17.55.25.63.39.08.14.08.8-.22 1.63z"/></svg>
           </button>
         </div>
         <div class="share-link-box" id="shareLinkBox"></div>
-        <div style="font-size:.68rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5">
-          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer"
-               style="color:var(--gold);font-weight:700">للمزيد من المعلومات والاستفسارات اضغط هنا</a>
+        <div style="font-size:.67rem;color:var(--muted);margin-top:7px;text-align:center;line-height:1.5">
+          🔗 <a href="https://linktr.ee/Daman2026" target="_blank" rel="noopener noreferrer" style="color:var(--gold3);font-weight:700">للمزيد من المعلومات اضغط هنا</a>
         </div>
       </div>
     </div>
