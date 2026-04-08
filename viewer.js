@@ -205,8 +205,11 @@ tr.r5:nth-child(even) td,tr.rret:nth-child(even) td{background:unset}
   const fullHTML=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقاعد - ${nm}</title><style>${css}</style></head><body>${body}</body></html>`;
   const win=window.open('','_blank','width=900,height=700');
   if(!win){showToast('❌ يرجى السماح بفتح النوافذ المنبثقة');return;}
-  win.document.write(fullHTML.replace('QR_PLACEHOLDER',QR_B64));
-  win.document.close();win.onload=()=>setTimeout(()=>{win.focus();win.print();},1400);
+  win.document.open();
+  win.document.write(fullHTML.split('QR_PLACEHOLDER').join(QR_B64));
+  win.document.close();
+  /* FIX: don't rely on win.onload which fires before assignment — use fixed delay instead */
+  setTimeout(function(){try{if(win&&!win.closed){win.focus();win.print();}}catch(e){console.warn('print error',e);}},2200);
   showToast('✅ جاري فتح ملف PDF...');
 }
 

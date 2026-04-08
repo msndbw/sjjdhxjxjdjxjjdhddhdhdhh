@@ -81,32 +81,7 @@ function buildPlanCard(plan,ci,nm,g,age,prevMo,ts,targetCatForLast5){
   </div></div>`;
 }
 
-function decodeLinkPayload(){
-  const hash=window.location.hash;
-  const isV3=hash.startsWith('#s='),isOld=hash.startsWith('#share=');
-  if(!isV3&&!isOld)return null;
-  try{
-    const rawEnc=isV3?hash.slice(3):hash.slice(7);
-    const encoded=rawEnc.replace(/-/g,'+').replace(/_/g,'/')+'=='.slice(0,(4-rawEnc.length%4)%4);
-    return JSON.parse(decodeURIComponent(escape(atob(encoded))));
-  }catch(e){console.warn('decode error',e);return null;}
-}
-
-function parseSharedPayload(payload){
-  let u_nm,u_g,u_ay,u_am,u_ts,u_py,u_pm,u_sa,plans;
-  if(payload.v===3){
-    const u=payload.u;u_nm=u[0];u_g=u[1]===1?'male':'female';u_ay=u[2];u_am=u[3];u_ts=u[4];u_py=u[5];u_pm=u[6];u_sa=u[7]||0;
-    const descs=['أقرب عمر تقاعدي مع شراء','أقرب عمر تقاعدي بدون شراء','تقاعد عند إكمال '+(u_g==='male'?'63':'58')+' سنة','إكمال خدمة 32 سنة (أعلى راتب)'];
-    plans=payload.p.map((p,i)=>({title:`الخطة ${i+1}`,desc:descs[i]||`خطة ${i+1}`,targetAge:p[0],totalServiceMonths:p[1],purchaseMonths:p[2],pension:p[3]*1000,avg:p[4]*1000,purchaseCost:p[5]*1000,retireDate:new Date(p[6],0,1),yearsPlan:buildCatPlan(u_sa,p[0],p[7])}));
-  }else if(payload.v===2){
-    const u=payload.u;u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=u.sa||0;
-    plans=payload.plans.map(p=>({title:p.ti,desc:p.de,targetAge:p.ag,totalServiceMonths:p.mo,purchaseMonths:p.bu,pension:p.pe,avg:p.av,purchaseCost:p.co,retireDate:new Date(p.rd),yearsPlan:buildCatPlan(u_sa,p.ag,p.sc)}));
-  }else{
-    const u=payload.u;u_nm=u.nm;u_g=u.g;u_ay=u.ay;u_am=u.am;u_ts=u.ts;u_py=u.py;u_pm=u.pm;u_sa=0;
-    plans=payload.plans.map(p=>({title:p.title,desc:p.desc,targetAge:p.age,totalServiceMonths:p.mo,purchaseMonths:p.buy,pension:p.pension,avg:p.avg,purchaseCost:p.cost,retireDate:new Date(p.rd),yearsPlan:p.yp?p.yp.map((cat,idx)=>({age:p.age-p.yp.length+1+idx,cat})):buildCatPlan(0,p.age,1)}));
-  }
-  return{user:{nm:u_nm,gender:u_g,ay:u_ay,am:u_am,ts:u_ts,py:u_py||0,pm:u_pm||0,sm:0,ad:0,sa:u_sa},plans};
-}
+/* decodeLinkPayload / parseSharedPayload removed from app.js — only viewer.js needs them */
 
 function exportPDFPlans(PLANS,USER,QR_B64,QR_LINK){
   if(!PLANS||!PLANS.length||!USER)return;
@@ -205,8 +180,11 @@ tr.r5:nth-child(even) td,tr.rret:nth-child(even) td{background:unset}
   const fullHTML=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقاعد - ${nm}</title><style>${css}</style></head><body>${body}</body></html>`;
   const win=window.open('','_blank','width=900,height=700');
   if(!win){showToast('❌ يرجى السماح بفتح النوافذ المنبثقة');return;}
-  win.document.write(fullHTML.replace('QR_PLACEHOLDER',QR_B64));
-  win.document.close();win.onload=()=>setTimeout(()=>{win.focus();win.print();},1400);
+  win.document.open();
+  win.document.write(fullHTML.split('QR_PLACEHOLDER').join(QR_B64));
+  win.document.close();
+  /* FIX: don't rely on win.onload which fires before assignment — use fixed delay instead */
+  setTimeout(function(){try{if(win&&!win.closed){win.focus();win.print();}}catch(e){console.warn('print error',e);}},2200);
   showToast('✅ جاري فتح ملف PDF...');
 }
 
@@ -466,49 +444,68 @@ function openCopyAllModal(){if(!PLANS.length)return;_mode='copy';_sel=new Set(PL
 /* ── SHARE LINK ── */
 function buildShareLink(chosen){
   if(!USER)return;
-  const payload={v:3,u:[USER.nm,USER.gender==='male'?1:0,USER.ay,USER.am,USER.ts,USER.py,USER.pm,USER.sa],p:chosen.map(p=>[p.targetAge,p.totalServiceMonths,p.purchaseMonths,Math.round(p.pension/1000),Math.round(p.avg/1000),Math.round(p.purchaseCost/1000),p.retireDate.getFullYear(),p.yearsPlan.length>0?p.yearsPlan[0].cat:1])};
-  const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  const baseUrl=window.location.href.split('/').slice(0,-1).join('/')+'/viewer.html';
+  /* v3 compact payload — numeric arrays reduce JSON size */
+  const payload={
+    v:3,
+    u:[USER.nm||'',USER.gender==='male'?1:0,USER.ay,USER.am,USER.ts,USER.py||0,USER.pm||0,USER.sa||0],
+    p:chosen.map(p=>[
+      p.targetAge,
+      p.totalServiceMonths,
+      p.purchaseMonths,
+      Math.round(p.pension/1000),
+      Math.round(p.avg/1000),
+      Math.round(p.purchaseCost/1000),
+      p.retireDate.getFullYear(),
+      p.yearsPlan.length>0?p.yearsPlan[0].cat:1
+    ])
+  };
+  /* Safe UTF-8 → base64 → URL-safe base64 */
+  let encoded;
+  try{
+    encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }catch(e){showToast('❌ حدث خطأ أثناء تشفير الرابط');console.error(e);return;}
+
+  /* Build absolute URL pointing to viewer.html only */
+  const origin=window.location.href.split('/').slice(0,-1).join('/');
+  const baseUrl=origin+'/viewer.html';
   const url=baseUrl+'#s='+encoded;
-  const linkBox=document.getElementById('shareLinkBox'),copyBtn=document.getElementById('shareLinkCopyBtn'),container=document.getElementById('shareLinkContainer');
-  linkBox.textContent=url;container.style.display='block';
+
+  const linkBox=document.getElementById('shareLinkBox');
+  const copyBtn=document.getElementById('shareLinkCopyBtn');
+  const container=document.getElementById('shareLinkContainer');
+  linkBox.textContent=url;
+  container.style.display='block';
+
   copyBtn.onclick=function(){
-    const doCopy=()=>{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);};
-    navigator.clipboard?.writeText(url).then(()=>{}).catch(doCopy);
-    this.textContent='✅ تم نسخ الرابط!';this.classList.add('copied');showToast('✅ تم نسخ الرابط');
+    const doCopy=()=>{
+      const ta=document.createElement('textarea');
+      ta.value=url;ta.style.position='fixed';ta.style.opacity='0';
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');}catch(_){}
+      document.body.removeChild(ta);
+    };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(()=>{}).catch(doCopy);
+    }else{doCopy();}
+    this.textContent='✅ تم نسخ الرابط!';this.classList.add('copied');
+    showToast('✅ تم نسخ الرابط');
     setTimeout(()=>{this.textContent='📋 نسخ الرابط';this.classList.remove('copied');},2500);
   };
-  const waBtn=document.getElementById('shareWABtn');
-  if(waBtn)waBtn.onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent(`📋 جداول التقاعد الاختياري - ${USER.nm||'مشترك'}\n\nافتح الرابط لعرض أو تحميل الجداول:\n${url}`),'_blank');};
-}
 
-/* ── LOAD SHARED VIEW (fallback if opened in index.html) ── */
-function loadSharedView(){
-  const payload=decodeLinkPayload();if(!payload)return false;
-  try{
-    const result=parseSharedPayload(payload);if(!result||!result.plans.length)return false;
-    PLANS=result.plans;USER=result.user;
-    const formEl=document.querySelector('.card.no-print');if(formEl)formEl.style.display='none';
-    ['calcBtn','printBtn','resetBtn','copyAllBtn','shareBtn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-    const toolbar=document.querySelector('.toolbar');
-    if(toolbar){toolbar.innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%"><span style="font-size:.82rem;color:var(--c1);background:#eef2fb;padding:8px 13px;border-radius:8px;border-right:3px solid var(--c3)">🔗 جدول مشارَك لـ <b>${USER.nm||'مشترك'}</b> (${USER.gender==='male'?'ذكر':'أنثى'} · ${USER.ay} سنة)</span><button class="btn btn-pdf" id="sharedPdfBtn">📄 فتح PDF</button><button class="btn btn-generate" id="sharedDlBtn">📥 تحميل PDF</button></div>`;
-    document.getElementById('sharedPdfBtn').onclick=()=>exportPDFPlans(PLANS,USER,QR_B64,QR_LINK);
-    document.getElementById('sharedDlBtn').onclick=()=>{exportPDFPlans(PLANS,USER,QR_B64,QR_LINK);showToast('✅ استخدم "حفظ كـ PDF" في حوار الطباعة');};}
-    const ageObj={years:USER.ay,months:USER.am,days:0};
-    let html=buildSummaryHTML(USER.nm,USER.gender,ageObj,USER.ts,(USER.py||0)*12+(USER.pm||0));
-    PLANS.forEach((p,i)=>html+=buildPlanCard(p,i,USER.nm,USER.gender,ageObj,(USER.py||0)*12+(USER.pm||0),USER.ts,null));
-    document.getElementById('results').innerHTML=html;
-    attachCopyBtns();buildNavBar();
-    setTimeout(()=>exportPDFPlans(PLANS,USER,QR_B64,QR_LINK),900);
-    return true;
-  }catch(e){console.warn('shared parse error',e);return false;}
+  const waBtn=document.getElementById('shareWABtn');
+  if(waBtn)waBtn.onclick=function(){
+    const msg=`📋 جداول التقاعد الاختياري - ${USER.nm||'مشترك'}\n\nافتح الرابط لعرض أو تحميل الجداول:\n${url}`;
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  };
 }
 
 /* ── INIT ── */
 window.onload=function(){
   populate();
   document.querySelectorAll('input[name="fixedCatOpt"]').forEach(r=>{r.addEventListener('change',function(){document.getElementById('fixedCatSelectWrap').style.display=this.value==='yes'?'flex':'none';});});
-  if(!loadSharedView()){document.getElementById('calcBtn').onclick=generate;}
+  /* روابط المشاركة تفتح في viewer.html فقط — المتصفح لا يعرض الجداول المشارَكة هنا */
+  document.getElementById('calcBtn').onclick=generate;
   document.getElementById('pdfBtn').onclick=()=>openPlanModal('pdf');
   document.getElementById('shareBtn').onclick=()=>openPlanModal('share');
   document.getElementById('copyAllBtn').onclick=openCopyAllModal;
