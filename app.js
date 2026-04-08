@@ -83,8 +83,9 @@ function buildPlanCard(plan,ci,nm,g,age,prevMo,ts,targetCatForLast5){
 
 /* decodeLinkPayload / parseSharedPayload removed from app.js — only viewer.js needs them */
 
-function exportPDFPlans(PLANS,USER,QR_B64,QR_LINK){
+function exportPDFPlans(PLANS,USER,QR_B64,QR_LINK,mode){
   if(!PLANS||!PLANS.length||!USER)return;
+  mode=mode||'print';
   const nm=USER.nm||'مشترك',gender=USER.gender==='male'?'ذكر':'أنثى';
   const today=new Date().toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric'});
   const priorStr=(USER.py>0||USER.pm>0)?FM(USER.py*12+USER.pm):'لا يوجد';
@@ -178,12 +179,30 @@ tr.r5:nth-child(even) td,tr.rret:nth-child(even) td{background:unset}
   body+='</div>';
 
   const fullHTML=`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقاعد - ${nm}</title><style>${css}</style></head><body>${body}</body></html>`;
+  const finalHTML=fullHTML.split('QR_PLACEHOLDER').join(QR_B64);
+
+  if(mode==='download'){
+    /* تنزيل مباشر بدون فتح نافذة */
+    try{
+      const blob=new Blob([finalHTML],{type:'text/html;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      const safeName=(USER.nm||'مشترك').replace(/[^\u0600-\u06FFa-zA-Z0-9]/g,'_');
+      a.href=url;a.download=`جدول-التقاعد-${safeName}.html`;
+      a.style.cssText='position:fixed;opacity:0;pointer-events:none';
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
+      showToast('✅ تم تحميل الملف — افتحه واضغط طباعة لحفظه كـ PDF');
+    }catch(e){showToast('❌ تعذّر التحميل: '+e.message);console.error(e);}
+    return;
+  }
+
+  /* وضع الطباعة — فتح نافذة وعرض حوار الطباعة */
   const win=window.open('','_blank','width=900,height=700');
   if(!win){showToast('❌ يرجى السماح بفتح النوافذ المنبثقة');return;}
   win.document.open();
-  win.document.write(fullHTML.split('QR_PLACEHOLDER').join(QR_B64));
+  win.document.write(finalHTML);
   win.document.close();
-  /* FIX: don't rely on win.onload which fires before assignment — use fixed delay instead */
   setTimeout(function(){try{if(win&&!win.closed){win.focus();win.print();}}catch(e){console.warn('print error',e);}},2200);
   showToast('✅ جاري فتح ملف PDF...');
 }
@@ -274,7 +293,8 @@ function copyPlanText(plan,user,idx){
   t+=`\n🔹 خدمة فعلية: ${aY} سنة و${aM} شهر.\n`;
   if(plan.purchaseMonths>0)t+=`🔹 تحتاج شراء ${pY} سنة و${pM} شهر، ليصبح المجموع ${tY} سنة و${tM} شهر.\n`;
   else t+=`🔹 إجمالي الخدمة: ${tY} سنة و${tM} شهر.\n`;
-  t+=`🔹 الراتب التقاعدي: ${Math.round(plan.pension).toLocaleString()} دينار.\n\n`;
+  t+=`🔹 الراتب التقاعدي: ${Math.round(plan.pension).toLocaleString()} دينار.\n`;
+  t+=`⚠️ تستحق الراتب عند إكمال سن ${plan.targetAge} سنة وليس عند مجرد بلوغه.\n\n`;
   if(plan.purchaseMonths>0){t+=`سعر السنة (شراء): ${Math.round(plan.avg*0.17*12).toLocaleString()} دينار.\n`;t+=`إجمالي مبلغ الشراء: ${Math.round(plan.purchaseCost).toLocaleString()} دينار.\n`;}
   return t;
 }
@@ -303,17 +323,26 @@ function populate(){
   document.getElementById('currentCategory').innerHTML=ch;
 }
 function daysInMonth(y,m){return new Date(y,m,0).getDate();}
+/* إعادة بناء قائمة الأيام مع الحفاظ على القيمة المحددة إن كانت لا تزال صالحة */
+function rebuildDays(ye,me,de){
+  const y=+ye.value,m=+me.value;
+  if(!m){de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';return;}
+  const prev=+de.value,max=daysInMonth(y||2000,m);
+  let h='<option value="">اليوم</option>';
+  for(let d=1;d<=max;d++)h+=`<option value="${d}"${d===prev?' selected':''}>${d}</option>`;
+  de.innerHTML=h;de.disabled=false;
+  if(prev>max)de.value=''; /* اليوم أصبح خارج النطاق (مثل 31 شباط) */
+}
 window.onYearChange=function(p){
   const ye=document.getElementById(p+'Year'),me=document.getElementById(p+'Month'),de=document.getElementById(p+'Day');
-  if(!+ye.value){me.disabled=true;me.value='';de.disabled=true;de.value='';return;}
-  me.disabled=false;de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';
+  if(!+ye.value){me.disabled=true;me.value='';de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';return;}
+  me.disabled=false;
+  /* إذا كان الشهر محدداً، أعد بناء الأيام بدون مسح اليوم */
+  rebuildDays(ye,me,de);
 };
 window.onMonthChange=function(p){
   const ye=document.getElementById(p+'Year'),me=document.getElementById(p+'Month'),de=document.getElementById(p+'Day');
-  const y=+ye.value,m=+me.value;
-  if(!m){de.disabled=true;de.value='';de.innerHTML='<option value="">اليوم</option>';return;}
-  const max=daysInMonth(y||2000,m);let h='<option value="">اليوم</option>';for(let d=1;d<=max;d++)h+=`<option value="${d}">${d}</option>`;
-  de.innerHTML=h;de.disabled=false;if(+de.value>max)de.value='';
+  rebuildDays(ye,me,de);
 };
 
 function reset(){
@@ -415,8 +444,33 @@ let _mode='pdf',_sel=new Set();
 function openPlanModal(mode){
   if(!PLANS.length)return;_mode=mode;_sel=new Set(PLANS.map((_,i)=>i));
   const shareBox=document.getElementById('shareLinkContainer');
-  if(mode==='pdf'){document.getElementById('modalTitle').textContent='📄 اختر الخطط للتصدير';document.getElementById('modalSubtitle').textContent='اختر الخطط التي تريد تضمينها في ملف PDF';document.getElementById('modalConfirmBtn').textContent='📄 تصدير PDF';shareBox.style.display='none';}
-  else{document.getElementById('modalTitle').textContent='🔗 مشاركة الجداول';document.getElementById('modalSubtitle').textContent='اختر الخطط ثم انسخ الرابط لمشاركته';document.getElementById('modalConfirmBtn').textContent='🔗 إنشاء رابط';shareBox.style.display='none';}
+  if(mode==='pdf'){
+    document.getElementById('modalTitle').textContent='📄 تصدير PDF';
+    document.getElementById('modalSubtitle').textContent='اختر الخطط ثم نزّل الملف مباشرة';
+    document.getElementById('modalConfirmBtn').textContent='📥 تحميل مباشر';
+    document.getElementById('modalConfirmBtn').style.background='';
+    /* زر معاينة إضافي */
+    const footer=document.querySelector('.modal-footer');
+    if(footer&&!footer.querySelector('#modalPrintBtn')){
+      const pb=document.createElement('button');
+      pb.id='modalPrintBtn';pb.className='btn-modal-confirm';
+      pb.style.cssText='background:var(--c3);margin-right:6px';
+      pb.textContent='🖨️ طباعة/معاينة';
+      pb.onclick=function(){
+        if(_sel.size===0){showToast('⚠️ يرجى اختيار خطة واحدة على الأقل');return;}
+        const ch=[..._sel].sort((a,b)=>a-b).map(i=>PLANS[i]);
+        closeModal();exportPDFPlans(ch,USER,QR_B64,QR_LINK,'print');
+      };
+      document.getElementById('modalConfirmBtn').before(pb);
+    }
+    shareBox.style.display='none';
+  }else{
+    document.getElementById('modalTitle').textContent='🔗 مشاركة الجداول';
+    document.getElementById('modalSubtitle').textContent='اختر الخطط ثم انسخ الرابط لمشاركته';
+    document.getElementById('modalConfirmBtn').textContent='🔗 إنشاء رابط';
+    const old=document.getElementById('modalPrintBtn');if(old)old.remove();
+    shareBox.style.display='none';
+  }
   renderModal();document.getElementById('planSelectorModal').style.display='flex';
 }
 function renderModal(){
@@ -428,7 +482,8 @@ function closeModal(){document.getElementById('planSelectorModal').style.display
 function modalConfirm(){
   if(_sel.size===0){showToast('⚠️ يرجى اختيار خطة واحدة على الأقل');return;}
   const chosen=[..._sel].sort((a,b)=>a-b).map(i=>PLANS[i]);
-  if(_mode==='pdf'){closeModal();exportPDFPlans(chosen,USER,QR_B64,QR_LINK);}
+  if(_mode==='pdf'){closeModal();exportPDFPlans(chosen,USER,QR_B64,QR_LINK,'download');}
+  else if(_mode==='print'){closeModal();exportPDFPlans(chosen,USER,QR_B64,QR_LINK,'print');}
   else if(_mode==='copy'){closeModal();copyAll(chosen);}
   else buildShareLink(chosen);
 }
@@ -444,7 +499,6 @@ function openCopyAllModal(){if(!PLANS.length)return;_mode='copy';_sel=new Set(PL
 /* ── SHARE LINK ── */
 function buildShareLink(chosen){
   if(!USER)return;
-  /* v3 compact payload — numeric arrays reduce JSON size */
   const payload={
     v:3,
     u:[USER.nm||'',USER.gender==='male'?1:0,USER.ay,USER.am,USER.ts,USER.py||0,USER.pm||0,USER.sa||0],
@@ -459,17 +513,24 @@ function buildShareLink(chosen){
       p.yearsPlan.length>0?p.yearsPlan[0].cat:1
     ])
   };
-  /* Safe UTF-8 → base64 → URL-safe base64 */
-  let encoded;
-  try{
-    encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
-      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }catch(e){showToast('❌ حدث خطأ أثناء تشفير الرابط');console.error(e);return;}
 
-  /* Build absolute URL pointing to viewer.html only */
   const origin=window.location.href.split('/').slice(0,-1).join('/');
   const baseUrl=origin+'/viewer.html';
-  const url=baseUrl+'#s='+encoded;
+  let url;
+
+  try{
+    const json=JSON.stringify(payload);
+    /* استخدام LZString إن كان متاحاً → رابط أقصر بنسبة 40-55% */
+    if(typeof LZString!=='undefined'){
+      const compressed=LZString.compressToEncodedURIComponent(json);
+      url=baseUrl+'#z='+compressed;
+    }else{
+      /* fallback: base64 عادي */
+      const encoded=btoa(unescape(encodeURIComponent(json)))
+        .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      url=baseUrl+'#s='+encoded;
+    }
+  }catch(e){showToast('❌ حدث خطأ أثناء تشفير الرابط');console.error(e);return;}
 
   const linkBox=document.getElementById('shareLinkBox');
   const copyBtn=document.getElementById('shareLinkCopyBtn');
